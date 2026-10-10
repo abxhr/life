@@ -15,9 +15,7 @@
 Radii: controls 7, panels 4 (paper corners), dialogs 14. Spacing: 4px grid. Ruled-line pitch `--lh` 32px (28 compact) — body text sits on the lines.
 
 ## Type
-- **Caveat 700** — titles, hero sentence, card headings, numbers that should feel hand-written.
-- **Patrick Hand** — body, labels, everything you read (min 18px body, 19px on mobile).
-- **Nunito** — only tiny axis/time labels (<14px) where a handwriting face would blur.
+- **Kalam** (400 body, 700 titles) — one felt-tip handwriting family for everything: sturdy, readable at small sizes, and it keeps the notebook feel. System sans only for tiny axis/time labels where handwriting would blur.
 Fonts are self-hosted (`static/fonts`): no request ever leaves for Google.
 
 ## Components

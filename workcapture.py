@@ -12,8 +12,8 @@ def _font(name):
 
 def build_page(endpoint, token):
     css = open(os.path.join(S, "css", "app.css"), encoding="utf8").read().replace('@import url("../fonts/fonts.css");', "")
-    faces = (f"@font-face{{font-family:'Caveat';font-weight:500 700;src:url({_font('Caveat-700.woff2')}) format('woff2')}}"
-             f"@font-face{{font-family:'Patrick Hand';font-weight:400;src:url({_font('PatrickHand-400.woff2')}) format('woff2')}}")
+    faces = (f"@font-face{{font-family:'Kalam';font-weight:400;src:url({_font('Kalam-400.woff2')}) format('woff2')}}"
+             f"@font-face{{font-family:'Kalam';font-weight:700;src:url({_font('Kalam-700.woff2')}) format('woff2')}}")
     tpl = open(os.path.join(S, "work", "work-capture.template.html"), encoding="utf8").read()
     cfg = "window.LIFE_CFG=" + json.dumps({"endpoint": endpoint, "token": token}).replace("</", "<\\/")
     qr = open(os.path.join(S, "vendor", "qrcode.js"), encoding="utf8").read()
