@@ -60,6 +60,12 @@ def run(pg, mobile):
     pg.wait_for_selector("article:has-text('4567')"); 
     for tabname in ("Expiry radar", "Visa applications", "Stay counter", "Leave & bridges"): pg.click(f".seg button:has-text('{tabname}')"); pg.wait_for_timeout(300)
     if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-vault.png")
+    # health
+    go("health"); pg.wait_for_selector("h3:has-text('Patterns')"); pg.click(".seg button:has-text('Mood')"); pg.click(".chip[aria-label^='Mood 4']"); pg.wait_for_selector(".chip.on[aria-label^='Mood 4']")
+    pg.click(".seg button:has-text('Logs')"); pg.click("button:has-text('Caffeine')"); pg.wait_for_selector(".item:has-text('caffeine')")
+    pg.click(".seg button:has-text('Health admin')"); pg.click("section:has-text('Appointments') button:has-text('Add')"); pg.fill(".dialog input >> nth=0", "Dentist"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector(".item:has-text('Dentist')")
+    pg.click(".seg button:has-text('Garmin & import')"); pg.wait_for_selector("h3:has-text('Import a file')")
+    if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-health.png")
     # work mode toggle
     pg.click(f"{'.topbar' if mobile else '.spine'} .mode-sw button[data-m=work]"); go("tasks"); pg.click(".seg button:has-text('Upcoming')"); pg.wait_for_selector(".item .t:has-text('Send deck')")
 

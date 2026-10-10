@@ -7,12 +7,35 @@ _cache = {}
 
 
 def register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit):
-    import gmail
+    import gmail, garmin
+    garmin.register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit)
 
     @app.post("/api/gmail/sync")
     @login_required
     def gmail_sync():
         return jsonify(gmail.sync(upsert, raw_db, set_state, settings, now_iso))
+
+    import json as _json
+    from flask import request as _rq
+
+    @app.get("/api/health/series")
+    @login_required
+    def health_series():
+        """Blood-test values are stored encrypted; this decrypts them for trend charts (authenticated, same user)."""
+        import app as core
+        out = {}
+        for r in db().execute("SELECT data FROM records WHERE kind='health_record' AND deleted_at IS NULL"):
+            d = _json.loads(r["data"])
+            if d.get("rtype") != "bloodtest":
+                continue
+            try:
+                v = float(core.dec(d["value"])) if str(d.get("value", "")).startswith("enc:") else float(d.get("value"))
+            except (TypeError, ValueError):
+                continue
+            out.setdefault(d.get("name", "?"), []).append({"date": d.get("date"), "value": v, "unit": d.get("unit", "")})
+        for k in out:
+            out[k].sort(key=lambda x: x["date"] or "")
+        return jsonify(out)
 
     register_more(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit)
 

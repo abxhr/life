@@ -106,3 +106,4 @@ def test_gmail_booking_parser():
     assert h["type"] == "hotel" and h["conf"] == "123ABC" and h["start"] == "2027-03-14"
     assert gmail.parse_booking("Weekly newsletter", "n@x.com", "Ten things you should know") is None
     assert gmail.parse_date("on 03/04/2027") == "2027-04-03"   # day/month
+

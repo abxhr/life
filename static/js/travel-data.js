@@ -29,6 +29,6 @@ export async function stats() {
   const byYear = {}; vis.forEach(v => { if (v.start) (byYear[v.start.slice(0, 4)] ||= new Set()).add(v.country); });
   return { count: been.length, un, pct: Math.round(un / UN_COUNT * 100), continents: conts.size, days, km: Math.round(dist), byYear };
 }
-export const rules = () => (window.__settings && window.__settings.stay_rules) || DEFAULT_RULES;
+export const rules = () => (window.__settings && window.__settings.stay_rules) || DEFAULT_RULES;  // null -> built-in rules
 export const passports = () => store.list('travel_doc', d => d.type === 'passport');
 export function stayEntries() { return store.list('stay_log').map(s => ({ country: s.country, entry: s.entry, exit: s.exit || null })); }

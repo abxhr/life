@@ -92,7 +92,8 @@ DEFAULT_SETTINGS = {
     "theme": "system", "density": "comfortable", "feeds": [], "activities": ["padel", "football", "tennis", "badminton", "bowling", "karting", "hiking", "beach", "board games"],
     "tabs": ["today", "tasks", "calendar", "notes"], "telegram_chat_id": "", "ai_model": "claude-sonnet-5-5", "ai_fast_model": "claude-haiku-5-5",
     "ai_strong_model": "claude-opus-5-5", "ai_monthly_cap_usd": 10, "ai_enabled_modules": ["tasks", "notes", "lists", "goals", "travel"],
-    "persona": "friend", "wealth_url": "", "wealth_token": "", "briefing_ai": True,
+    "persona": "friend", "wealth_url": "", "wealth_token": "", "briefing_ai": True, "mood_prompts": False, "cycle_tracking": False,
+    "home_lat": 25.25, "home_lon": 55.36, "stay_rules": None, "areas": None, "email_in_allowed": [], "ai_health": False, "ai_features": {}, "year_start_month": 1,
 }
 SECRET_SETTINGS = {"wealth_token"}
 
@@ -137,7 +138,7 @@ from cryptography.fernet import Fernet, InvalidToken
 
 _fk = os.environ.get("LIFE_FERNET_KEY") or secret_file("fernet.key", lambda: Fernet.generate_key().decode())
 FERNET = Fernet(_fk.encode())
-SENSITIVE = {"travel_doc": ["number"], "health_record": ["value", "notes"], "vault_doc": ["number"], "emergency": ["insurance_no", "blood"]}
+SENSITIVE = {"travel_doc": ["number"], "health_record": ["value", "notes", "policy"], "vault_doc": ["number"], "emergency": ["insurance_no", "blood"]}
 
 
 def enc(v):

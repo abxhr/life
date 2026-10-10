@@ -277,6 +277,13 @@ def tick(raw_db, set_state, kv_get, settings, now_iso, upsert):
             gmail.sync(upsert, raw_db, set_state, settings, now_iso)
         except Exception as e:
             print('gmail:', e)
+    if now - _last.get('garmin', 0) > 4 * 3600 and os.environ.get('GARMIN_EMAIL'):
+        _last['garmin'] = now
+        try:
+            import garmin
+            garmin.sync(upsert, raw_db, set_state, now_iso, days=3)
+        except Exception as e:
+            print('garmin:', e)
     if now - _last.get('auto', 0) > 1800:
         _last['auto'] = now
         try:

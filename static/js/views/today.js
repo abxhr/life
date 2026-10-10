@@ -10,6 +10,7 @@ import { taskRow, editTask, overdueTriage } from './tasks.js';
 import { streak, toggleHabit, doneOn, weekCount } from '../habits-core.js';
 import { pickQuote } from '../quotes.js';
 import { openCapture } from '../capture.js';
+import { moodCard } from '../mood.js';
 
 const greet = () => { const H = +timeIn().slice(0, 2); return H < 5 ? 'Still up' : H < 12 ? 'Good morning' : H < 17 ? 'Good afternoon' : 'Good evening'; };
 const MOODS = ['', 'rough', 'low', 'okay', 'good', 'great'];
@@ -83,12 +84,7 @@ export default async function render(el, ctx) {
   // trip countdown
   const nextTrip = store.list('trip', t => t.start && t.start >= T && t.status !== 'done').sort((a, b) => a.start.localeCompare(b.start))[0];
   if (nextTrip) { const n = Math.round((new Date(nextTrip.start) - new Date(T)) / 864e5); R.append(h('a', { class: 'card', href: '#/travel/t/' + nextTrip.id, style: { '--dom': 'var(--d-travel)', textDecoration: 'none', color: 'inherit' } }, h('div', { class: 'card-head' }, h('h3', {}, nextTrip.name), h('span', { class: 'count' }, n === 0 ? 'today' : `in ${n} day${n > 1 ? 's' : ''}`)), h('div', { class: 'faint small' }, niceDate(nextTrip.start, true) + (nextTrip.checklist ? ` · ${nextTrip.checklist.filter(c => c.done).length}/${nextTrip.checklist.length} ready` : '')))); }
-  // mood check-in
-  const m = store.list('mood_log', x => x.day === T)[0];
-  const mood = h('section', { class: 'card', style: { '--dom': 'var(--d-health)' } }, h('div', { class: 'card-head' }, h('h3', {}, 'How are you?'), m ? h('span', { class: 'count' }, 'logged') : ''));
-  const rate = (label, key) => h('div', { class: 'row wrap' }, h('span', { class: 'small muted', style: { width: '56px' } }, label), [1, 2, 3, 4, 5].map(n => h('button', { class: 'chip' + (m && m[key] === n ? ' on' : ''), 'aria-label': `${label} ${n}`, 'aria-pressed': String(!!m && m[key] === n), onclick: () => store.put('mood_log', { day: T, [key]: n, at: new Date().toISOString() }, m?.id), title: MOODS[n] }, n)));
-  mood.append(rate('Mood', 'mood'), rate('Energy', 'energy'));
-  R.append(mood);
+  R.append(moodCard({ compact: true }));
 
   // habits
   const habits = store.list('habit', x => !x.archived && inMode(x)).sort((a, b) => (a.created_at).localeCompare(b.created_at));
