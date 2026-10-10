@@ -24,3 +24,20 @@
 .md b { font-weight: 400; } .md.out { opacity: .45; } .md.is-today b { background: var(--margin); color: #fff; border-radius: 50%; width: 26px; height: 26px; display: grid; place-items: center; }
 .mi { font-size: .82rem; line-height: 1.1; border-left: 3px solid var(--c); padding-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 860px) { .md { min-height: 64px; } .mi { display: none; } .cal-gutter span { font-size: .65rem; } }
+
+/* lists & maps */
+.stars { display: inline-flex; } .star { background: none; border: 0; padding: 0 1px; font-size: 1.15rem; color: var(--rule); cursor: pointer; line-height: 1; min-width: 20px; } .star.on { color: var(--d-goals); }
+.map { height: min(62vh, 560px); border: 1.5px solid var(--ink); border-radius: 6px; z-index: 0; }
+.pin span { display: block; width: 18px; height: 18px; background: var(--margin); border: 2px solid #fff; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.leaflet-container { font-family: var(--f-hand); }
+
+/* notes */
+.notes-grid { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start; }
+.notes-list { position: sticky; top: 16px; max-height: calc(100dvh - 32px); overflow: auto; }
+.note-row { display: block; padding: 8px 12px; border-left: 3px solid transparent; text-decoration: none; color: var(--ink); border-bottom: 1px dashed var(--rule); }
+.note-row:hover { background: var(--panel-2); } .note-row.sel { border-left-color: var(--d-notes); background: var(--panel); }
+.note-row b { display: block; font-weight: 400; font-size: 1.2rem; } .note-row .meta, .note-row .snip { display: block; color: var(--ink-3); font-size: .95rem; } .note-row .snip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.note-title { font: 700 2rem var(--f-title); border-bottom-style: dashed; }
+.note-body { min-height: 52vh; width: 100%; font-size: 1.2rem; } .note-prev { min-height: 40vh; padding: 8px 4px; }
+.note-prev h2, .note-prev h3, .note-prev h4 { margin: 12px 0 4px; } .backlinks { margin-top: 20px; border-top: 1.5px dashed var(--rule); padding-top: 8px; }
+@media (max-width: 860px) { .notes-grid { grid-template-columns: 1fr; } .notes-grid.has-note .notes-list { display: none; } .notes-grid:not(.has-note) .notes-ed { display: none; } .notes-list { position: static; max-height: none; } }

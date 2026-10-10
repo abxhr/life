@@ -8,7 +8,7 @@ export function h(tag, attrs, ...kids) {
     if (k === 'class') el.className = v;
     else if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
     else if (k === 'html') throw new Error('no raw html');
-    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'style' && typeof v === 'object') { for (const [p, x] of Object.entries(v)) { if (x == null) continue; p.startsWith('--') ? el.style.setProperty(p, x) : (el.style[p] = x); } }
     else if (k === 'value' || k === 'checked' || k === 'disabled' || k === 'selected') el[k] = v;
     else el.setAttribute(k, v === true ? '' : v);
   }
@@ -52,17 +52,4 @@ export const isWorkDay = ds => cfg.workDays.includes(dow(ds));
 export function ago(iso) { if (!iso) return 'never'; const s = (Date.now() - new Date(iso)) / 1000; if (s < 90) return 'just now'; if (s < 3600) return Math.round(s / 60) + ' min ago'; if (s < 86400) return Math.round(s / 3600) + ' h ago'; return Math.round(s / 86400) + ' d ago'; }
 export const money = (n, c = cfg.currency) => new Intl.NumberFormat('en', { style: 'currency', currency: c, maximumFractionDigits: 0 }).format(n || 0);
 export const pad = n => String(n).padStart(2, '0');
-export function mdToNodes(src) { // tiny safe markdown: headings, lists, checklists, bold, italic, code, links, [[wiki]]
-  const out = []; let list = null;
-  const inline = t => { const frag = []; const re = /(\[\[([^\]]+)\]\]|\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\((https?:[^)\s]+)\))/g; let i = 0, m;
-    while ((m = re.exec(t))) { if (m.index > i) frag.push(t.slice(i, m.index)); if (m[2]) frag.push(h('a', { href: '#/notes?link=' + encodeURIComponent(m[2]) }, m[2])); else if (m[3]) frag.push(h('b', {}, m[3])); else if (m[4]) frag.push(h('i', {}, m[4])); else if (m[5]) frag.push(h('code', {}, m[5])); else frag.push(h('a', { href: m[7], target: '_blank', rel: 'noopener noreferrer' }, m[6])); i = re.lastIndex; }
-    if (i < t.length) frag.push(t.slice(i)); return frag; };
-  for (const ln of String(src || '').split('\n')) {
-    let m;
-    if ((m = /^(#{1,3})\s+(.*)/.exec(ln))) { list = null; out.push(h('h' + (m[1].length + 1), {}, inline(m[2]))); }
-    else if ((m = /^\s*[-*]\s+\[( |x)\]\s+(.*)/i.exec(ln))) { if (!list) out.push(list = h('div', { class: 'stack-s' })); list.append(h('label', { class: 'row' }, h('input', { type: 'checkbox', class: 'chk', checked: m[1] !== ' ', disabled: true }), h('span', {}, inline(m[2])))); }
-    else if ((m = /^\s*[-*]\s+(.*)/.exec(ln))) { if (!list || list.tagName !== 'UL') out.push(list = h('ul', {})); list.append(h('li', {}, inline(m[1]))); }
-    else if (ln.trim() === '') { list = null; } else { list = null; out.push(h('p', { style: { margin: '0 0 8px' } }, inline(ln))); }
-  }
-  return out;
-}
+export { mdToNodes } from './md.js';

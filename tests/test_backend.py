@@ -80,3 +80,19 @@ def test_ics_parser_dst_and_rrule():
     ics = "BEGIN:VEVENT\r\nUID:a\r\nDTSTART;TZID=Asia/Dubai:20261012T100000\r\nDTEND;TZID=Asia/Dubai:20261012T110000\r\nRRULE:FREQ=WEEKLY;BYDAY=MO,WE;COUNT=4\r\nSUMMARY:Standup\r\nEND:VEVENT\r\n"
     ev = integrations.parse_ics(ics, tz, datetime(2026, 10, 1, tzinfo=tz), datetime(2026, 12, 1, tzinfo=tz))
     assert [e["start"] for e in ev] == ["2026-10-12T06:00:00Z", "2026-10-14T06:00:00Z", "2026-10-19T06:00:00Z", "2026-10-21T06:00:00Z"]
+
+def test_work_page_is_self_contained(cli):
+    html = cli.get("/api/work/page").data.decode()
+    assert "<script src" not in html and "<link " not in html and "@import" not in html
+    import re
+    assert not re.findall(r'(?:src|href)=["\']https?://', html)      # nothing loaded from outside
+    assert "lc_" not in html                                          # offline-only variant has no token
+    html2 = cli.get("/api/work/page?endpoint=https://life.example.com").data.decode()
+    assert "lc_" in html2 and "life.example.com" in html2
+    assert cli.get("/api/work/page?endpoint=javascript:alert(1)").status_code == 400
+    assert any(t["label"] == "work-page" for t in cli.get("/api/tokens").get_json())
+
+def test_ping_has_cors_and_no_data(cli):
+    import app
+    r = app.app.test_client().get("/api/ping")
+    assert r.get_json() == {"ok": True} and r.headers["Access-Control-Allow-Origin"] == "*"

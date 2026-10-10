@@ -37,3 +37,19 @@ assert.equal(localToUtc('2026-07-01', '09:00', 'Europe/London').toISOString(), '
 assert.equal(localToUtc('2026-12-01', '09:00', 'Europe/London').toISOString(), '2026-12-01T09:00:00.000Z');
 assert.equal(diffDays('2026-02-28', '2026-03-01'), 1);
 console.log('nlp/recur/time OK');
+// ---- QR hand-off: encode with the real work-page code, decode with the phone code ----
+globalThis.window = {}; globalThis.document = { addEventListener() {} };
+await import('../static/work/work-capture.js');
+const { makeCollector, itemId, linesFromText } = await import('../static/js/qrhandoff.js');
+const items = Array.from({ length: 40 }, (_, i) => ({ id: 'id' + i, title: 'Send report number ' + i + ' to finance', tags: ['today'], due: '2026-10-12', time: '14:00', done: 0 }));
+items.push({ id: 'x', title: 'finished', tags: [], done: 1 }); items.push({ id: 'y', title: 'gone', tags: [], deleted: 1 });
+const enc = window.__lifeQR.encodeItems(items);
+assert.equal(enc.count, 40); assert.ok(enc.out.length > 3, 'multi-chunk');
+let col = makeCollector(), res; const shuffled = [...enc.out].reverse();
+for (const c of shuffled) res = col.add(c);               // order-independent
+assert.equal(res.state, 'done'); assert.equal(res.items.length, 40); assert.match(res.items[0].t, /Send report number 0 to finance #today 2026-10-12 14:00/);
+res = makeCollector().add(enc.out[0].replace(/:[^:]*$/, ':AAAA')); assert.equal(res.state, 'partial'); // wrong data, incomplete
+const bad = [...enc.out]; bad[1] = bad[1].slice(0, -3) + 'AAA'; col = makeCollector(); for (const c of bad) res = col.add(c); assert.equal(res.state, 'bad'); // checksum catches corruption
+assert.equal(await itemId(' Call Mum '), await itemId('call mum'));   // repeat scans -> same id -> no duplicate
+assert.deepEqual(linesFromText('- a\n* b\n1. c\n[ ] d\n\n'), ['a', 'b', 'c', 'd']);
+console.log('QR hand-off OK');

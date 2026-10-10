@@ -76,9 +76,11 @@ const paintMode = () => document.querySelectorAll('.mode-sw button').forEach(b =
 function onData() {
   const n = store.list('inbox').filter(inMode).length, b = $('#inbox-n'); if (b) { b.textContent = n; b.classList.toggle('hide', !n); }
   const st = store.status(), p = $('#sync-pill'); if (p) p.textContent = !navigator.onLine ? 'offline · ' + st.pending + ' waiting' : st.pending ? st.pending + ' change' + (st.pending > 1 ? 's' : '') + ' waiting' : st.lastErr ? 'sync paused' : 'saved';
-  const a = document.activeElement; if (a && pageEl && pageEl.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; // never yank the keyboard
+  const a = document.activeElement, typing = a && pageEl && pageEl.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
+  if (typing && !a.classList.contains('cap-input')) return; // never yank the keyboard (quick-add boxes are the exception: they re-render and keep focus)
   if (document.querySelector('.scrim')) return;
-  render(true);
+  const lbl = typing && a.getAttribute('aria-label');
+  render(true).then(() => { if (lbl) { const n = pageEl.querySelector(`[aria-label="${lbl}"]`); n && n.focus(); } });
 }
 window.addEventListener('online', onData); window.addEventListener('offline', onData);
 

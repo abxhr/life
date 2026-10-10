@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Work to-dos</title>
+<style>/*__CSS__*/
+body { padding: 0 } .wrap { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px 56px; position: relative; min-height: 100vh; background-image: linear-gradient(to bottom, transparent 31px, var(--rule-soft) 31px); background-size: 100% 32px; background-position: 0 14px; }
+.wrap::before { content: ""; position: absolute; left: 36px; top: 0; bottom: 0; border-left: 2px solid var(--margin); opacity: .55; }
+.tier { padding: 4px 0; border-bottom: 1px dashed var(--rule); } .tier.ok b { color: var(--good); } .tier.bad b { color: var(--bad); }
+#due { background: var(--sticky); color: var(--sticky-ink); padding: 8px 14px; border-radius: 2px 2px 12px 2px; margin: 0 0 16px; }
+#toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 8px 16px; border-radius: 8px; z-index: 99; max-width: 90vw; }
+#qrbox { position: fixed; inset: 0; background: rgba(20,18,10,.55); z-index: 50; display: grid; place-items: center; padding: 16px; } #qrbox[hidden], #toast[hidden], #due[hidden] { display: none }
+#qrimg svg { width: min(78vw, 420px); height: auto; background: #fff; padding: 8px; border-radius: 6px; }
+</style></head>
+<body>
+<div class="wrap">
+  <h1 class="squig" style="margin-bottom:6px">Work to-dos</h1>
+  <p class="muted" style="margin:0 0 16px">Just my own reminders. Nothing confidential in here.</p>
+  <div id="due" hidden></div>
+  <input id="add" class="in cap-input" placeholder="Add a to-do… “send deck to finance tomorrow 2pm #today”" aria-label="Add a to-do" autocomplete="off">
+  <div class="row wrap" style="margin:10px 0"><button class="chip" data-q="#today">#today</button><button class="chip" data-q="#waiting">#waiting</button><button class="chip" data-q="#outside-work">#outside-work</button></div>
+  <div class="row wrap" style="margin:6px 0 14px"><div class="seg"><button data-f="open">Open</button><button data-f="today">#today</button><button data-f="waiting">#waiting</button><button data-f="outside-work">#outside-work</button><button data-f="done">Done</button></div></div>
+  <div id="list" class="card"></div>
+  <div class="row wrap" style="margin-top:18px"><button id="qr" class="btn primary">Send to phone (QR)</button><button id="copy" class="btn">Copy as text</button><span id="pending" class="faint small"></span></div>
+  <div class="row wrap" style="margin-top:10px"><button id="backup" class="btn sm">Save backup file</button><label class="btn sm">Restore backup<input id="restore" type="file" accept=".json" hidden></label><button id="notify" class="btn sm" hidden>Allow alerts</button></div>
+  <h3 style="margin-top:28px">Which way is working?</h3><div id="tiers"></div>
+  <details style="margin-top:14px"><summary>Direct sync settings (optional)</summary>
+    <label class="field"><span>Server address (https://…)</span><input id="endpoint" class="in" placeholder="https://life.example.com"></label>
+    <label class="field"><span>Capture token (write-only)</span><input id="token" class="in" type="password" autocomplete="off"></label>
+  </details>
+  <p class="faint small" style="margin-top:24px">Check your company’s IT/security policy before using any personal tool at work. This page makes no network request unless you add a server address above.</p>
+</div>
+<div id="qrbox" hidden><div class="dialog" style="text-align:center"><h2>Scan with Life on your phone</h2><div id="qrimg"></div><p id="qrinfo" class="muted"></p><p class="faint small">Phone: Life → Work capture → Scan. Several codes? Keep scanning until it says done.</p><div class="actions" style="justify-content:center"><button id="qrclose" class="btn">Close</button><button id="qrdone" class="btn primary">Scanned — mark handed off</button></div></div></div>
+<div id="toast" hidden role="status"></div>
+<script>/*__QR__*/</script>
+<script>/*__CFG__*/</script>
+<script>/*__JS__*/</script>
+</body></html>
