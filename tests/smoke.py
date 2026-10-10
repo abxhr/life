@@ -36,6 +36,9 @@ def main():
                     pg.wait_for_selector(".dialog .parsed .chip")
                     if SHOTS: pg.screenshot(path=f"{OUT}/{name}-{scheme}-capture.png")
                     pg.keyboard.press("Control+Enter"); pg.wait_for_selector(".toast")
+                    pg.wait_for_function("navigator.serviceWorker.getRegistration().then(r => !!(r && r.active))", timeout=10000)   # the service worker really installs and activates
+                    h = pg.evaluate("fetch('/api/health').then(r => r.json())"); st = {x['name']: x for x in h['states']}
+                    assert st['scheduler']['last_ok'] and not st['scheduler']['last_error'], f"background scheduler not healthy: {st['scheduler']}"
                     for r in ROUTES:
                         pg.goto(f"{BASE}/#/{r}"); pg.wait_for_selector(".view, .page > *", timeout=8000); pg.wait_for_timeout(350)
                         if SHOTS: pg.screenshot(path=f"{OUT}/{name}-{scheme}-{r}.png", full_page=False)

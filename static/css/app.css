@@ -244,3 +244,16 @@ kbd { font: 600 .8rem var(--f-ui); border: 1px solid var(--ink-3); border-bottom
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
 @media print { .spine, .tabbar, .topbar, .margin-line { display: none } .shell { display: block } }
+
+/* accent preference: the "pen" colour (primary actions, active nav, the one chart series) */
+:root[data-accent="teal"] { --pen: #0e6b72; --pen-soft: #d6ecee; }
+:root[data-accent="plum"] { --pen: #7a2f8f; --pen-soft: #ecdcf1; }
+:root[data-accent="forest"] { --pen: #1f6b3a; --pen-soft: #d9ecde; }
+:root[data-accent="teal"][data-theme="dark"] { --pen: #6fd0d6; --pen-soft: #1d3d40; --pen-ink: #0a1f21; }
+:root[data-accent="plum"][data-theme="dark"] { --pen: #d9a5ec; --pen-soft: #3a2145; --pen-ink: #200c29; }
+:root[data-accent="forest"][data-theme="dark"] { --pen: #86d49a; --pen-soft: #1e3a27; --pen-ink: #0c2013; }
+@media (prefers-color-scheme: dark) {
+  :root[data-accent="teal"]:not([data-theme="light"]) { --pen: #6fd0d6; --pen-soft: #1d3d40; --pen-ink: #0a1f21; }
+  :root[data-accent="plum"]:not([data-theme="light"]) { --pen: #d9a5ec; --pen-soft: #3a2145; --pen-ink: #200c29; }
+  :root[data-accent="forest"]:not([data-theme="light"]) { --pen: #86d49a; --pen-soft: #1e3a27; --pen-ink: #0c2013; }
+}

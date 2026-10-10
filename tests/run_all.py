@@ -6,7 +6,7 @@ steps = [("JS syntax (every module)", None)]
 steps += [("node unit tests", ["node", "tests/test_nlp.mjs"]), ("", ["node", "tests/test_suggest.mjs"]), ("", ["node", "tests/test_travel.mjs"]), ("", ["node", "tests/test_insights.mjs"]),
           ("pytest (backend, security, assistant, reminders, share, push, garmin)", [py, "-m", "pytest", "tests", "-q"])]
 if not fast:
-    steps += [("smoke: every page x 2 viewports x 2 themes, zero console errors", [py, "tests/smoke.py"]), ("flows: capture, tasks, notes, lists, travel, health, assistant, review, extras", [py, "tests/flows.py"]), ("work page: offline, zero network requests", [py, "tests/workpage.py"]), ("quality: XSS, accessibility, performance", [py, "tests/quality.py"])]
+    steps += [("smoke: every page x 2 viewports x 2 themes, zero console errors", [py, "tests/smoke.py"]), ("flows: capture, tasks, notes, lists, travel, health, assistant, review, extras", [py, "tests/flows.py"]), ("work page: offline, zero network requests", [py, "tests/workpage.py"]), ("offline-first: shell with no network, outbox, sync on reconnect", [py, "tests/offline.py"]), ("quality: XSS, accessibility, performance", [py, "tests/quality.py"])]
 fail = []; t0 = time.time()
 for label, cmd in steps:
     if label: print(f"\n== {label}", flush=True)
@@ -15,7 +15,7 @@ for label, cmd in steps:
         for f in glob.glob(os.path.join(ROOT, "static", "js", "**", "*.js"), recursive=True) + [os.path.join(ROOT, "sw.js")]:
             if "vendor" in f: continue
             r = subprocess.run(["node", "--check", f], capture_output=True, text=True, cwd=ROOT)
-            if r.returncode and "sw.js" not in f: bad.append((f, r.stderr.strip().splitlines()[0:3]))
+            if r.returncode: bad.append((f, r.stderr.strip().splitlines()[0:3]))
         print("  ok" if not bad else "  FAIL " + str(bad)); fail += [b[0] for b in bad]; continue
     r = subprocess.run(cmd, cwd=ROOT, env=env, text=True, capture_output=True)
     tail = (r.stdout + r.stderr).strip().splitlines()[-4:]; print("  " + "\n  ".join(tail))

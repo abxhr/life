@@ -24,16 +24,23 @@ let cur = { name: '', cleanup: null }, mainEl, pageEl, authed = false;
 
 // ---------------- boot ----------------
 async function boot() {
-  let me;
-  try { me = await (await fetch('/api/me', { credentials: 'same-origin' })).json(); } catch { me = { authed: false, offline: true }; }
-  if (!me.authed) return loginScreen(me);
-  store.setCsrf(me.csrf);
-  try { const s = await store.api('/api/settings'); window.__settings = s; Object.assign(cfg, { tz: s.timezone, name: s.name, currency: s.currency, workDays: s.work_days, workStart: s.work_start, workEnd: s.work_end, eveningFrom: s.evening_from }); } catch { /* offline: defaults */ }
+  let me, net = true;
+  try { me = await (await fetch('/api/me', { credentials: 'same-origin' })).json(); } catch { net = false; me = { authed: false }; }
+  if (!net && lsGet('life_authed') === '1') { // offline: open straight from the on-device copy (the service worker served this page)
+    try { window.__settings = JSON.parse(lsGet('life_settings') || '{}'); applySettings(window.__settings); } catch { /* defaults */ }
+    await store.init(); authed = true; shell(); route(); import('./reminders-ui.js').then(m => m.startReminderWatcher()); registerSW(); return;
+  }
+  if (!me.authed) { lsSet('life_authed', ''); return loginScreen(net ? me : { ...me, offline: true }); }
+  store.setCsrf(me.csrf); lsSet('life_authed', '1');
+  try { const s = await store.api('/api/settings'); window.__settings = s; applySettings(s); lsSet('life_settings', JSON.stringify(s)); } catch { try { window.__settings = JSON.parse(lsGet('life_settings') || '{}'); applySettings(window.__settings); } catch { /* defaults */ } }
   await store.init(); authed = true;
   shell(); route(); store.sync();
   import('./reminders-ui.js').then(m => m.startReminderWatcher());
   registerSW();
 }
+const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
+const applySettings = s => Object.assign(cfg, { tz: s.timezone || cfg.tz, name: s.name || cfg.name, currency: s.currency || cfg.currency, workDays: s.work_days || cfg.workDays, workStart: s.work_start || cfg.workStart, workEnd: s.work_end || cfg.workEnd, eveningFrom: s.evening_from || cfg.eveningFrom });
 
 function loginScreen(me) {
   const err = h('p', { class: 'bad small', role: 'alert' }), pw = h('input', { class: 'in', type: 'password', autocomplete: me.setup ? 'new-password' : 'current-password', 'aria-label': 'Password', autofocus: true });

@@ -6,6 +6,8 @@ export const state = {
   setMode(m) { set('mode', m); document.dispatchEvent(new Event('modechange')); },
   get theme() { return get('theme', 'system'); },
   setTheme(t) { set('theme', t); applyTheme(); },
+  get accent() { return get('accent', 'ultramarine'); },
+  setAccent(a) { set('accent', a); applyTheme(); },
   get density() { return get('density', 'comfortable'); },
   setDensity(d) { set('density', d); applyTheme(); },
 };
@@ -13,6 +15,7 @@ export function applyTheme() {
   const r = document.documentElement, t = state.theme;
   if (t === 'system') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', t);
   r.setAttribute('data-density', state.density);
+  r.setAttribute('data-accent', state.accent);
   const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#11140f' : '#25304b');
 }

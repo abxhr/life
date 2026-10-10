@@ -6,8 +6,8 @@ from test_backend import cli, put  # noqa: F401
 
 def run_tick():
     import app, integrations
-    integrations._last.clear(); integrations._last.update({"feeds": 9e12, "gmail": 9e12, "garmin": 9e12, "wealthsnap": 9e12, "auto": 9e12})   # only exercise reminders
-    integrations.tick(app.raw_db, app.set_state, app.kv_get, app.settings, app.now_iso, app.upsert)
+    integrations._last.clear(); integrations._last.update({"feeds": 9e12, "gmail": 9e12, "garmin": 9e12, "wealthsnap": 9e12, "auto": 9e12, "tgpoll": 9e12})   # only exercise reminders
+    integrations.tick(app.raw_db, app.set_state, app.kv_get, app.kv_set, app.settings, app.now_iso, app.upsert)
 
 
 def data_of(cli, rid):

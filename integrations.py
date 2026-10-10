@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 import requests
 from flask import request, jsonify
 
-INTEGRATIONS = ["calendar_feeds", "telegram", "web_push", "weather", "fx", "garmin", "gmail", "wealth", "ai", "backup"]
+INTEGRATIONS = ["scheduler", "calendar_feeds", "telegram", "web_push", "weather", "fx", "garmin", "gmail", "wealth", "ai", "backup"]
 _last = {}
 
 
@@ -264,7 +264,7 @@ def due_items(c):
             yield r["id"], r["kind"], d
 
 
-def tick(raw_db, set_state, kv_get, settings, now_iso, upsert):
+def tick(raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert):
     s = settings()
     now = time.time()
     if now - _last.get("feeds", 0) > 20 * 60:

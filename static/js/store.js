@@ -85,6 +85,7 @@ export const store = {
   async sync() {
     if (syncing || !navigator.onLine) return; syncing = true; notify();
     try {
+      if (!csrf) { const me = await (await fetch('/api/me', { credentials: 'same-origin' })).json(); if (!me.authed) { location.reload(); return; } csrf = me.csrf; }   // came back online after an offline start
       const batch = [...outbox.values()].slice(0, 200);
       if (batch.length) {
         const j = await this.api('/api/sync', { method: 'POST', body: JSON.stringify({ changes: batch.map(({ v, ...c }) => c) }) });

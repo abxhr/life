@@ -82,9 +82,10 @@ export default async function render(el, ctx) {
     const due = h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Due'), h('span', { class: 'count' }, dueToday.length || '')));
     if (over.length) due.append(h('details', { open: true }, h('summary', { class: 'small', style: { cursor: 'pointer', color: 'var(--warn)' } }, `${over.length} slipped — sort them out`), overdueTriage(over)));
     dueToday.forEach(t => due.append(taskRow(t)));
-    const bills = store.list('bill_feed', b => b.due && b.due >= T && b.due <= addDays(T, 7));
-    bills.forEach(b => due.append(h('div', { class: 'item' }, icon('clock'), h('span', {}, `${b.name} · ${b.amount ? cfg.currency + ' ' + b.amount : ''}`), h('span', { class: 'meta' }, niceDate(b.due)))));
-    if (!dueToday.length && !over.length && !bills.length) due.append(h('p', { class: 'faint', style: { margin: 0 } }, 'Nothing due. That’s a good feeling.'));
+    const billBox = h('div', {});
+    store.api('/api/wealth/summary').then(w => (w.upcoming || []).filter(b => b.due && b.due >= T && b.due <= addDays(T, 7)).forEach(b => billBox.append(h('div', { class: 'item' }, icon('clock'), h('span', {}, `${b.name}${b.amount ? ' · ' + (w.currency || cfg.currency) + ' ' + b.amount : ''}`), h('span', { class: 'meta' }, niceDate(b.due)))))).catch(() => {});
+    due.append(billBox);
+    if (!dueToday.length && !over.length) due.append(h('p', { class: 'faint', style: { margin: 0 } }, 'Nothing due. That’s a good feeling.'));
     L.append(due);
   }
 
@@ -132,6 +133,9 @@ export default async function render(el, ctx) {
   else if (wins.length) { const w = wins[0]; line = `${ago(w.created_at)}: ${w.title}`; by = 'a win'; }
   else { const q = pickQuote(seed); line = q[1]; by = q[2]; }
   R.append(h('p', { class: 'faint', style: { margin: '4px 0 0', fontFamily: 'var(--f-title)', fontSize: '1.4rem', lineHeight: 1.15 } }, '“' + line + '”', h('span', { class: 'small', style: { fontFamily: 'var(--f-hand)' } }, by ? '  — ' + by : '')));
+  const HID = { 'Today’s page': 'timeline', 'Due': 'due', 'How are you?': 'mood', 'Habits': 'habits', 'Body': 'body', 'What should I do?': 'do', 'This week’s three': 'top3', 'On this day': 'onthisday' };
+  const hidden = new Set((window.__settings && window.__settings.today_hidden) || []);
+  if (hidden.size) el.querySelectorAll('section.card').forEach(c => { const k = HID[(c.querySelector('h3') || {}).textContent] || HID[((c.querySelector('h3') || {}).textContent || '').replace(/^How are you this .*/, 'How are you?')]; if (k && hidden.has(k)) c.remove(); });
 }
 
 const stat = (v, l) => h('div', { class: 'stat' }, h('b', {}, v), h('span', {}, l));

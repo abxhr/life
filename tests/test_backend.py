@@ -115,3 +115,15 @@ def test_wealth_endpoints_fail_soft(cli, monkeypatch):
     j = cli.get("/api/wealth/summary").get_json(); assert j["configured"] is True and "unreachable" in j["error"]       # unreachable: still 200, no stack trace
     r = cli.post("/api/wealth/expense", json={"amount": 45}, headers=cli.h); assert r.status_code == 502 and "error" in r.get_json()
     assert cli.get("/api/settings").get_json()["wealth_token"] == "set", "the token is never sent back to the browser"
+
+
+def test_demo_data_is_explicit_and_removable(cli):
+    before = len([r for r in cli.get("/api/sync?since=").get_json()["records"]])
+    assert before == 0, "nothing is pre-loaded: no fake data in production paths"
+    n = cli.post("/api/demo", headers=cli.h).get_json()["n"]; assert n > 30
+    recs = cli.get("/api/sync?since=").get_json()["records"]; assert recs and all(r["data"].get("demo") for r in recs)
+    # a real record the user adds alongside the demo data must survive removal
+    put(cli, "task", {"title": "my real task"})
+    assert cli.delete("/api/demo", headers=cli.h).get_json()["n"] == n
+    live = [r for r in cli.get("/api/sync?since=").get_json()["records"] if not r["deleted_at"]]
+    assert [r["data"]["title"] for r in live] == ["my real task"]

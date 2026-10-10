@@ -92,7 +92,7 @@ DEFAULT_SETTINGS = {
     "theme": "system", "density": "comfortable", "feeds": [], "activities": ["padel", "football", "tennis", "badminton", "bowling", "karting", "hiking", "beach", "board games"],
     "tabs": ["today", "tasks", "calendar", "notes"], "telegram_chat_id": "", "ai_model": "claude-sonnet-5-5", "ai_fast_model": "claude-haiku-5-5",
     "ai_strong_model": "claude-opus-5-5", "ai_monthly_cap_usd": 10, "ai_enabled_modules": ["tasks", "notes", "lists", "goals", "travel"],
-    "persona": "friend", "wealth_url": "", "wealth_token": "", "briefing_ai": True, "mood_prompts": False, "agenda_push": False, "agenda_time": "07:30", "agenda_workdays_only": True, "cycle_tracking": False,
+    "persona": "friend", "wealth_url": "", "wealth_token": "", "briefing_ai": True, "mood_prompts": False, "today_hidden": [], "agenda_push": False, "agenda_time": "07:30", "agenda_workdays_only": True, "cycle_tracking": False,
     "home_lat": 25.25, "home_lon": 55.36, "stay_rules": None, "areas": None, "email_in_allowed": [], "ai_health": False, "ai_features": {}, "ai_prices": None, "ai_proactive": {}, "ai_auto_low": False, "year_start_month": 1,
 }
 SECRET_SETTINGS = {"wealth_token"}
@@ -219,7 +219,7 @@ def headers(r):
     r.headers["X-Frame-Options"] = "DENY"
     r.headers["Referrer-Policy"] = "same-origin"
     r.headers["Content-Security-Policy"] = ("default-src 'self'; img-src 'self' data: blob: https://*.tile.openstreetmap.org; "
-                                            "style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; worker-src 'self'; manifest-src 'self'; media-src 'self' blob:")
+                                            "style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://*.tile.openstreetmap.org; frame-ancestors 'none'; worker-src 'self'; manifest-src 'self'; media-src 'self' blob:")
     return r
 
 
@@ -670,9 +670,12 @@ def scheduler():
             if last_backup != today:
                 do_backup()
                 last_backup = today
-            integrations.tick(raw_db, set_state, kv_get, settings, now_iso, upsert)
-        except Exception as e:  # never let the loop die
+            integrations.tick(raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert)
+        except Exception as e:  # never let the loop die — but never fail silently either
             print("scheduler:", redact(e))
+            set_state("scheduler", False, f"background jobs hit an error: {e}")
+        else:
+            set_state("scheduler", True, "", "reminders, syncs and backups running")
         time.sleep(30)
 
 
