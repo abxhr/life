@@ -174,7 +174,7 @@ button.chip { cursor: pointer; } button.chip:hover { border-color: var(--ink); c
 .chip .x { border: 0; background: none; padding: 0 0 0 2px; cursor: pointer; font-size: 1.1rem; line-height: 1; color: inherit; }
 .chip.warn { border-color: var(--warn); color: var(--warn); } .chip.bad { border-color: var(--bad); color: var(--bad); } .chip.good { border-color: var(--good); color: var(--good); }
 .seg { display: inline-flex; border: 1.5px solid var(--ink); border-radius: 99px; padding: 2px; }
-.seg button { border: 0; background: none; padding: 2px 14px; min-height: 34px; border-radius: 99px; cursor: pointer; font-size: 1.05rem; }
+.seg { flex-wrap: nowrap; } .seg button { white-space: nowrap; border: 0; background: none; padding: 2px 14px; min-height: 34px; border-radius: 99px; cursor: pointer; font-size: 1.05rem; }
 .seg button[aria-pressed="true"], .seg button.on { background: var(--ink); color: var(--paper); }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dom, var(--ink-3)); display: inline-block; flex: none; }
 

@@ -44,6 +44,22 @@ def run(pg, mobile):
     go("today"); pg.click(".chip:has-text('Read 20 minutes')"); pg.wait_for_selector(".toast:has-text('Read 20 minutes')")
     go("do"); pg.wait_for_selector(".card .btn:has-text('Start')")
     if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-do.png")
+    # travel: map, country, visit, trip + tabs, vault
+    go("travel"); pg.wait_for_selector("svg.world path.ct", timeout=15000); pg.wait_for_timeout(1200)
+    pg.fill("input[aria-label='Find a country']", "France"); pg.keyboard.press("Enter"); pg.wait_for_selector("h1:has-text('France')")
+    pg.click(".seg button:has-text('Been')"); pg.click("button:has-text('Add visit')"); pg.fill(".dialog textarea", "Eiffel tower and croissants"); pg.fill(".dialog input[type=date] >> nth=0", "2025-05-01"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector(".passport .item:has-text('croissants')")
+    pg.click("button:has-text('Add what I found')"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector(".chip:has-text('Unknown')")
+    go("travel"); pg.wait_for_selector("svg.world path.c-been"); 
+    if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-travel-map.png")
+    pg.click(".seg button:has-text('Trips')"); pg.click("button:has-text('Plan a trip') >> nth=0"); pg.fill(".dialog input[placeholder^='e.g. Japan']", "Paris long weekend"); pg.fill(".dialog input[list=cl2]", "France"); pg.keyboard.press("Enter"); pg.wait_for_selector(".dialog .chip:has-text('France')"); pg.fill(".dialog input[type=date] >> nth=0", "2026-11-05"); pg.fill(".dialog input[type=date] >> nth=1", "2026-11-08"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector("h1:has-text('Paris long weekend')")
+    for tabname in ("Itinerary", "Bookings", "Documents", "Packing", "Budget", "Before you go", "Journal", "Recap"):
+        pg.click(f".seg button:has-text('{tabname}')"); pg.wait_for_timeout(400)
+    pg.click(".seg button:has-text('Itinerary')"); pg.fill("input[aria-label^='Add to 2026-11-05']", "10:00 Louvre"); pg.keyboard.press("Enter"); pg.wait_for_selector(".item:has-text('Louvre')")
+    pg.click(".seg button:has-text('Before you go')"); pg.wait_for_selector(".item:has-text('Passport')")
+    go("vault"); pg.click("button:has-text('Add document') >> nth=0"); pg.fill(".dialog input[data-k=name]", "Test passport"); pg.fill(".dialog input[data-k=number]", "P1234567"); pg.fill(".dialog input[data-k=expiry]", "2030-01-01"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector("article:has-text('Test passport')")
+    pg.wait_for_selector("article:has-text('4567')"); 
+    for tabname in ("Expiry radar", "Visa applications", "Stay counter", "Leave & bridges"): pg.click(f".seg button:has-text('{tabname}')"); pg.wait_for_timeout(300)
+    if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-vault.png")
     # work mode toggle
     pg.click(f"{'.topbar' if mobile else '.spine'} .mode-sw button[data-m=work]"); go("tasks"); pg.click(".seg button:has-text('Upcoming')"); pg.wait_for_selector(".item .t:has-text('Send deck')")
 

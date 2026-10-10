@@ -80,6 +80,9 @@ export default async function render(el, ctx) {
     L.append(due);
   }
 
+  // trip countdown
+  const nextTrip = store.list('trip', t => t.start && t.start >= T && t.status !== 'done').sort((a, b) => a.start.localeCompare(b.start))[0];
+  if (nextTrip) { const n = Math.round((new Date(nextTrip.start) - new Date(T)) / 864e5); R.append(h('a', { class: 'card', href: '#/travel/t/' + nextTrip.id, style: { '--dom': 'var(--d-travel)', textDecoration: 'none', color: 'inherit' } }, h('div', { class: 'card-head' }, h('h3', {}, nextTrip.name), h('span', { class: 'count' }, n === 0 ? 'today' : `in ${n} day${n > 1 ? 's' : ''}`)), h('div', { class: 'faint small' }, niceDate(nextTrip.start, true) + (nextTrip.checklist ? ` · ${nextTrip.checklist.filter(c => c.done).length}/${nextTrip.checklist.length} ready` : '')))); }
   // mood check-in
   const m = store.list('mood_log', x => x.day === T)[0];
   const mood = h('section', { class: 'card', style: { '--dom': 'var(--d-health)' } }, h('div', { class: 'card-head' }, h('h3', {}, 'How are you?'), m ? h('span', { class: 'count' }, 'logged') : ''));

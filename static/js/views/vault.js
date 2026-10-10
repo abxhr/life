@@ -1,3 +1,94 @@
-import { h } from '../util.js';
-import { empty } from '../ui.js';
-export default function render(el) { el.append(h('div', { class: 'page-head' }, h('h1', { class: 'squig' }, 'vault')), empty('notes', 'Coming up', 'This page is on the build list.')); }
+// Documents & visas: encrypted vault, expiry radar, visa applications, counted-stay calculator, leave balance & bridges.
+import { h, today, addDays, niceDate, diffDays, uid, cfg } from '../util.js';
+import { icon } from '../icons.js';
+import { store } from '../store.js';
+import { modal, toast, empty, field, seg, confirmBox } from '../ui.js';
+import { world } from '../worldmap.js';
+import { rules, stayEntries } from '../travel-data.js';
+import { stayCalc, tripFits, bridges, passportOkAt, DEFAULT_RULES, SCHENGEN } from '../travelcore.js';
+
+let tab = 'docs';
+const TABS = [['docs', 'Documents'], ['radar', 'Expiry radar'], ['visas', 'Visa applications'], ['stays', 'Stay counter'], ['leave', 'Leave & bridges']];
+export const DOC_TYPES = [['passport', 'Passport'], ['id', 'National ID'], ['residence', 'Residence visa / permit'], ['emirates_id', 'Emirates ID'], ['licence', 'Driving licence'], ['insurance', 'Travel insurance'], ['vaccination', 'Vaccination certificate'], ['evisa', 'e-Visa / authorisation (ETIAS, ESTA, eTA…)'], ['ff', 'Frequent-flyer number'], ['loyalty', 'Loyalty programme'], ['other', 'Other']];
+const ALERTS = [180, 90, 30, 7];
+
+function editDoc(id) {
+  const x = id ? store.get(id) : { type: 'passport', name: '', number: '', expiry: '' };
+  modal(async (d, close) => {
+    const w = await world(), f = { ...x }, type = h('select', { class: 'in' }, DOC_TYPES.map(([v, l]) => h('option', { value: v, selected: v === x.type }, l)));
+    const mk = (k, label, t = 'text', ph = '') => field(label, h('input', { class: 'in', type: t, value: x[k] ?? '', placeholder: ph, 'data-k': k }));
+    const num = h('input', { class: 'in', value: x.number || '', placeholder: 'Number (stored encrypted)', 'data-k': 'number', autocomplete: 'off' }); if (x.number_enc) { num.readOnly = true; num.title = 'Tap “Change number” to replace'; }
+    const chg = x.number_enc ? h('button', { class: 'btn sm', type: 'button', onclick: () => { num.readOnly = false; num.value = ''; num.focus(); chg.remove(); } }, 'Change number') : '';
+    const fileBtn = h('input', { type: 'file', accept: 'image/*,application/pdf', class: 'hide', onchange: async () => { const fd = new FormData(); fd.append('file', fileBtn.files[0]); try { const r = await store.upload('/api/files', fd); f.file = r.id; toast('Scan stored (encrypted)'); } catch (e) { toast(e.message); } } });
+    const inputs = [mk('name', 'Name / label', 'text', 'e.g. UK passport'), mk('nationality', 'Nationality / country', 'text', 'e.g. IN'), mk('issued', 'Issued', 'date'), mk('expiry', 'Expires', 'date'), mk('authority', 'Issuing authority'), mk('entries', 'Entries allowed (visas)'), mk('stay', 'Stay allowed (days)')];
+    d.append(h('h2', {}, id ? 'Edit document' : 'Add document'), h('div', { class: 'stack' }, field('Type', type), inputs[0], field('Number', h('div', { class: 'row' }, num, chg)), h('div', { class: 'grid2' }, inputs[1], inputs[3]), h('div', { class: 'grid2' }, inputs[2], inputs[4]), h('div', { class: 'grid2' }, inputs[5], inputs[6]), h('div', { class: 'row' }, h('button', { class: 'btn sm', onclick: () => fileBtn.click() }, icon('upload'), f.file ? 'Replace scan' : 'Attach scan or photo'), fileBtn, f.file ? h('a', { href: '/api/files/' + f.file, target: '_blank', class: 'small' }, 'view scan') : ''), field('Notes', h('textarea', { class: 'in', 'data-k': 'notes', value: x.notes || '' }))),
+      h('div', { class: 'actions' }, id ? h('button', { class: 'btn danger', onclick: async () => { if (await confirmBox('Delete this document?', 'The record is removed; undo for a few seconds.', { ok: 'Delete', danger: true })) { store.del(id); close(); toast('Deleted', () => store.restore(id)); } } }, icon('trash')) : '', h('span', { class: 'grow' }), h('button', { class: 'btn', onclick: close }, 'Cancel'), h('button', { class: 'btn primary', onclick: () => { const p = { type: type.value, file: f.file || null }; d.querySelectorAll('[data-k]').forEach(i => { if (i.dataset.k === 'number' && i.readOnly) return; p[i.dataset.k] = i.value || null; }); if (!p.name) return d.querySelector('[data-k=name]').focus(); if (p.stay) p.stay = +p.stay; if (p.expiry !== x.expiry) { p.notified = []; } store.put('travel_doc', p, id); close(); } }, 'Save')));
+  }, { wide: true, label: 'Document' });
+}
+function reveal(id, node) { store.api(`/api/reveal/${id}/number`).then(j => { node.textContent = j.value || '—'; setTimeout(() => { node.textContent = '••••' + (j.value || '').slice(-4); }, 10000); }).catch(() => toast('Couldn’t reveal (needs a connection)')); }
+
+function docsTab(box) {
+  box.append(h('div', { class: 'row' }, h('span', { class: 'muted grow' }, 'Numbers are encrypted at rest and masked here; scans live in an encrypted folder.'), h('button', { class: 'btn primary', onclick: () => editDoc() }, icon('plus'), 'Add document')));
+  const ds = store.list('travel_doc').sort((a, b) => (a.expiry || '9').localeCompare(b.expiry || '9'));
+  if (!ds.length) { box.append(empty('shield', 'Your documents, in one safe place', 'Passports, visas, IDs, insurance — with expiry reminders built in.', h('button', { class: 'btn primary', onclick: () => editDoc() }, 'Add your passport'))); return; }
+  const T = today();
+  box.append(h('div', { class: 'grid2' }, ds.map(x => { const left = x.expiry ? diffDays(T, x.expiry) : null, num = h('b', { style: { fontWeight: 400, cursor: x.number_enc ? 'pointer' : 'default', fontFamily: 'var(--f-ui)', letterSpacing: '.04em' }, title: 'Tap to reveal for 10 seconds', onclick: () => x.number_enc && reveal(x.id, num) }, x.number || '—');
+    return h('article', { class: 'card', style: { '--dom': 'var(--d-travel)' } }, h('div', { class: 'card-head' }, h('h3', { style: { flex: 1 } }, x.name), h('button', { class: 'btn icon sm ghost', 'aria-label': 'Edit', onclick: () => editDoc(x.id) }, icon('edit'))),
+      h('div', { class: 'faint small' }, (DOC_TYPES.find(t => t[0] === x.type) || [0, x.type])[1] + (x.nationality ? ' · ' + x.nationality : '')), h('div', { class: 'row', style: { margin: '6px 0' } }, icon('lock', 'mini'), num),
+      x.expiry ? h('div', { class: 'row wrap' }, h('span', { class: 'chip ' + (left < 0 ? 'bad' : left < 90 ? 'warn' : 'good') }, left < 0 ? `expired ${-left} days ago` : `${left} days left`), h('span', { class: 'muted small' }, 'expires ' + niceDate(x.expiry, true))) : '', x.file ? h('a', { class: 'small', href: '/api/files/' + x.file, target: '_blank', rel: 'noopener' }, 'view scan') : ''); })));
+}
+function radarTab(box) {
+  const T = today(), ds = store.list('travel_doc', d => d.expiry).sort((a, b) => a.expiry.localeCompare(b.expiry)), trips = store.list('trip', t => (t.end || t.start || '') >= T && t.start);
+  box.append(h('p', { class: 'muted' }, `Reminders go out at ${ALERTS.join(' / ')} days before expiry (Today, and Telegram if connected).`));
+  if (!ds.length) { box.append(empty('clock', 'Nothing expiring', 'Add documents with expiry dates.')); return; }
+  const flags = []; ds.filter(d => d.type === 'passport').forEach(p => trips.forEach(t => { const r = passportOkAt(p.expiry, t.end || t.start); if (r.ok === false) flags.push(`${p.name} won’t have 6 months left after “${t.name}” (needs ${r.validUntilNeeded}).`); }));
+  flags.forEach(f => box.append(h('div', { class: 'card', style: { borderColor: 'var(--warn)' } }, h('b', {}, 'Heads up. '), f)));
+  const max = Math.max(...ds.map(d => diffDays(T, d.expiry)), 365), line = h('div', { class: 'radar-line' });
+  ds.forEach(x => { const left = diffDays(T, x.expiry), pct = Math.max(0, Math.min(100, left / max * 100)); line.append(h('div', { class: 'rl-row' }, h('span', { class: 'rl-name' }, x.name), h('div', { class: 'rl-track' }, ALERTS.map(a => h('i', { class: 'rl-tick', style: { left: Math.min(100, a / max * 100) + '%' }, title: a + ' days' })), h('b', { class: 'rl-dot ' + (left < 0 ? 'bad' : left < 90 ? 'warn' : 'good'), style: { left: pct + '%' } })), h('span', { class: 'faint small' }, left < 0 ? 'expired' : niceDate(x.expiry, true)))); });
+  box.append(h('div', { class: 'card' }, line));
+}
+function editApp(id) {
+  const a = id ? store.get(id) : { country: '', status: 'preparing' };
+  modal((d, close) => {
+    const f = ['country', 'applied', 'reference', 'appointment', 'fee', 'processing', 'follow_up'].reduce((o, k) => (o[k] = h('input', { class: 'in', value: a[k] ?? '', type: ['applied', 'appointment', 'follow_up'].includes(k) ? 'date' : k === 'fee' ? 'number' : 'text' }), o), {});
+    const st = h('select', { class: 'in' }, ['preparing', 'applied', 'appointment booked', 'in processing', 'approved', 'rejected', 'collected'].map(s => h('option', { value: s, selected: s === a.status }, s))), docs = h('textarea', { class: 'in', value: a.checklist || '', placeholder: 'Documents checklist, one per line' });
+    d.append(h('h2', {}, id ? 'Edit application' : 'New visa application'), h('div', { class: 'stack' }, field('For (country / visa)', f.country), field('Status', st), h('div', { class: 'grid2' }, field('Applied on', f.applied), field('Reference', f.reference), field('Appointment', f.appointment), field('Fee', f.fee)), field('Expected processing time', f.processing), field('Follow up on (I’ll remind you)', f.follow_up), field('Documents checklist', docs)),
+      h('div', { class: 'actions' }, id ? h('button', { class: 'btn danger', onclick: () => { store.del(id); close(); } }, icon('trash')) : '', h('span', { class: 'grow' }), h('button', { class: 'btn', onclick: close }, 'Cancel'), h('button', { class: 'btn primary', onclick: () => { const p = { status: st.value, checklist: docs.value }; Object.entries(f).forEach(([k, i]) => p[k] = i.value || null); if (!p.country) return f.country.focus(); const r = store.put('visa_app', p, id); if (p.follow_up) store.put('reminder', { title: 'Follow up on visa: ' + p.country, remind_at: new Date(p.follow_up + 'T05:30:00Z').toISOString(), source: 'visa_app:' + r.id }, 'a' + r.id.slice(1)); close(); } }, 'Save')));
+  }, { wide: true });
+}
+function visasTab(box) {
+  box.append(h('div', { class: 'row' }, h('span', { class: 'grow' }), h('button', { class: 'btn primary', onclick: () => editApp() }, icon('plus'), 'New application')));
+  const apps = store.list('visa_app').sort((a, b) => (b.applied || '').localeCompare(a.applied || '')); if (!apps.length) { box.append(empty('send', 'No applications in progress', 'Track dates, reference numbers and what to bring.')); return; }
+  box.append(h('div', { class: 'grid2' }, apps.map(a => h('article', { class: 'card', style: { cursor: 'pointer' }, onclick: () => editApp(a.id) }, h('div', { class: 'card-head' }, h('h3', {}, a.country), h('span', { class: 'chip ' + (a.status === 'approved' ? 'good' : a.status === 'rejected' ? 'bad' : '') }, a.status)), h('div', { class: 'meta' }, a.applied ? h('span', {}, 'applied ' + niceDate(a.applied, true)) : '', a.reference ? h('span', {}, '# ' + a.reference) : '', a.appointment ? h('span', {}, 'appointment ' + niceDate(a.appointment, true)) : '', a.fee ? h('span', {}, cfg.currency + ' ' + a.fee) : '', a.processing ? h('span', {}, a.processing) : '')))));
+}
+
+async function staysTab(box) {
+  const w = await world(), T = today(), entries = stayEntries(), rs = rules();
+  box.append(h('p', { class: 'muted' }, 'Log when you enter and leave counted-stay regions. Entry and exit days both count (the cautious reading). These rules change — check the official source and edit them in Settings if needed.'));
+  const logs = store.list('stay_log').sort((a, b) => b.entry.localeCompare(a.entry));
+  rs.forEach(r => { const c = stayCalc(entries, r, T); box.append(h('section', { class: 'card', style: { '--dom': 'var(--d-travel)' } }, h('div', { class: 'card-head' }, h('h3', {}, r.name)), c.kind === 'rolling' ? h('div', {}, h('div', { class: 'stat-row' }, h('div', { class: 'stat' }, h('b', {}, c.used), h('span', {}, `of ${r.limit} used`)), h('div', { class: 'stat' }, h('b', { style: { color: c.remaining < 10 ? 'var(--bad)' : 'inherit' } }, c.remaining), h('span', {}, 'days left')), h('div', { class: 'stat' }, h('b', {}, c.maxStayStartingTomorrow), h('span', {}, 'max stay if you enter tomorrow'))), h('div', { class: 'pbar', style: { marginTop: '10px' } }, h('i', { style: { width: Math.min(100, c.used / r.limit * 100) + '%' } })), c.nextFree ? h('p', { class: 'muted small', style: { margin: '8px 0 0' } }, `You’re at the limit. A day frees up on ${niceDate(c.nextFree, true)}.`) : h('p', { class: 'faint small', style: { margin: '8px 0 0' } }, `Window: ${niceDate(c.windowStart, true)} → today.`)) : h('div', { class: 'stat-row' }, h('div', { class: 'stat' }, h('b', {}, c.used), h('span', {}, 'days this visit')), h('div', { class: 'stat' }, h('b', {}, c.remaining), h('span', {}, 'days left')), c.leaveBy ? h('div', { class: 'stat' }, h('b', {}, niceDate(c.leaveBy, true)), h('span', {}, 'leave by')) : ''))); });
+  // planner
+  const sel = h('select', { class: 'in', style: { maxWidth: '240px' } }, rs.map((r, i) => h('option', { value: i }, r.name))), a = h('input', { class: 'in', type: 'date', value: addDays(T, 30) }), b = h('input', { class: 'in', type: 'date', value: addDays(T, 40) }), out = h('p', { class: 'muted', style: { margin: '8px 0 0' } });
+  box.append(h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Can I take this trip?')), h('div', { class: 'row wrap' }, sel, a, b, h('button', { class: 'btn', onclick: () => { const r = rs[+sel.value], t = tripFits(entries, r, a.value, b.value); out.textContent = t.ok ? 'Yes — it fits within the rule.' : `No — you’d go over on ${niceDate(t.firstBadDay, true)}.`; out.style.color = t.ok ? 'var(--good)' : 'var(--bad)'; } }, 'Check')), out));
+  const country = h('input', { class: 'in', list: 'sc', placeholder: 'Country' }), dl = h('datalist', { id: 'sc' }, w.list.map(c => h('option', { value: c.name }))), en = h('input', { class: 'in', type: 'date' }), ex = h('input', { class: 'in', type: 'date' });
+  box.append(h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Entries & exits')), h('div', { class: 'row wrap' }, country, dl, field('In', en), field('Out (blank = still there)', ex), h('button', { class: 'btn primary', onclick: () => { const c = w.byName[country.value.toLowerCase()]; if (!c || !en.value) return toast('Pick a country and an entry date'); store.put('stay_log', { country: c.a2, entry: en.value, exit: ex.value || null }); country.value = en.value = ex.value = ''; } }, 'Log')),
+    logs.map(l => h('div', { class: 'item' }, h('div', { class: 'grow' }, w.byA2[l.country]?.name || l.country, h('div', { class: 'meta' }, niceDate(l.entry, true) + ' → ' + (l.exit ? niceDate(l.exit, true) : 'now'))), !l.exit ? h('button', { class: 'btn sm', onclick: () => store.put('stay_log', { exit: today() }, l.id) }, 'I left today') : '', h('button', { class: 'btn icon sm ghost', 'aria-label': 'Remove', onclick: () => store.del(l.id) }, icon('x'))))));
+}
+
+function leaveTab(box) {
+  const y = +today().slice(0, 4), set = window.__settings || {}, wd = set.work_days || [1, 2, 3, 4, 5], bal = store.list('leave_balance', b => b.year === y)[0] || {}, taken = store.list('leave_taken', l => (l.start || '').startsWith(String(y)));
+  const used = taken.reduce((s, l) => s + (l.days || 0), 0), total = (bal.annual || 0) + (bal.carry || 0);
+  const n = (k, label) => field(label, h('input', { class: 'in', type: 'number', value: bal[k] ?? '', onchange: e => store.put('leave_balance', { year: y, [k]: +e.target.value }, bal.id) }));
+  box.append(h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, `Leave ${y}`)), h('div', { class: 'grid2' }, n('annual', 'Annual leave days'), n('carry', 'Carried over')), h('div', { class: 'stat-row' }, h('div', { class: 'stat' }, h('b', {}, used), h('span', {}, 'taken')), h('div', { class: 'stat' }, h('b', {}, Math.max(0, total - used)), h('span', {}, 'left')))));
+  const hs = store.list('public_holiday').sort((a, b) => a.date.localeCompare(b.date)), nm = h('input', { class: 'in', placeholder: 'Holiday name' }), dt = h('input', { class: 'in', type: 'date' });
+  box.append(h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Public holidays')), h('p', { class: 'muted small', style: { margin: '0 0 8px' } }, 'Add the ones for your country (dates like Eid move each year, so you enter them).'), hs.map(x => h('div', { class: 'item' }, h('div', { class: 'grow' }, x.name, h('div', { class: 'meta' }, niceDate(x.date, true))), h('button', { class: 'btn icon sm ghost', onclick: () => store.del(x.id), 'aria-label': 'Remove' }, icon('x')))), h('div', { class: 'row wrap' }, nm, dt, h('button', { class: 'btn', onclick: () => { if (nm.value && dt.value) { store.put('public_holiday', { name: nm.value, date: dt.value }); nm.value = dt.value = ''; } } }, 'Add'))));
+  const br = bridges(hs.map(x => x.date), wd, y, 5);
+  box.append(h('section', { class: 'card taped' }, h('div', { class: 'card-head' }, h('h3', {}, 'Bridge days')), br.length ? br.map(b => h('div', { class: 'item' }, h('div', { class: 'grow' }, `${niceDate(b.start, true)} → ${niceDate(b.end, true)}`, h('div', { class: 'meta' }, `${b.leave} leave day${b.leave > 1 ? 's' : ''} → ${b.off} days off`)), h('span', { class: 'chip good' }, (b.off / b.leave).toFixed(1) + '×'))) : h('p', { class: 'faint', style: { margin: 0 } }, 'Add public holidays and I’ll find where a day or two of leave buys a long break.')));
+  const ls = h('div', { class: 'row wrap' }), a = h('input', { class: 'in', type: 'date' }), b = h('input', { class: 'in', type: 'date' });
+  box.append(h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Leave taken')), taken.map(l => h('div', { class: 'item' }, h('div', { class: 'grow' }, `${niceDate(l.start, true)} → ${niceDate(l.end, true)}`, h('div', { class: 'meta' }, l.days + ' days')), h('button', { class: 'btn icon sm ghost', onclick: () => store.del(l.id), 'aria-label': 'Remove' }, icon('x')))), h('div', { class: 'row wrap' }, a, b, h('button', { class: 'btn', onclick: async () => { if (!a.value || !b.value) return; const { leaveNeeded } = await import('../travelcore.js'); store.put('leave_taken', { start: a.value, end: b.value, days: leaveNeeded(a.value, b.value, wd, hs.map(x => x.date)) }); a.value = b.value = ''; } }, 'Log leave'))));
+}
+
+export default async function render(el, ctx) {
+  el.append(h('div', { class: 'page-head' }, h('a', { class: 'btn icon sm ghost', href: '#/travel', 'aria-label': 'Back to travel' }, icon('chevL')), h('h1', { class: 'squig', style: { '--dom': 'var(--d-travel)' } }, 'Documents & visas')), h('div', { style: { margin: '0 0 18px', overflowX: 'auto' } }, seg(TABS, tab, v => { tab = v; ctx.refresh(); })));
+  const box = h('div', { class: 'stack' }); el.append(box); await ({ docs: docsTab, radar: radarTab, visas: visasTab, stays: staysTab, leave: leaveTab })[tab](box);
+}

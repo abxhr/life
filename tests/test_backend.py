@@ -96,3 +96,13 @@ def test_ping_has_cors_and_no_data(cli):
     import app
     r = app.app.test_client().get("/api/ping")
     assert r.get_json() == {"ok": True} and r.headers["Access-Control-Allow-Origin"] == "*"
+
+
+def test_gmail_booking_parser():
+    import gmail
+    p = gmail.parse_booking("Your flight confirmation - EK318", "no-reply@emirates.com", "Booking reference: X7K9QP. Departs 12 Mar 2027 at 09:15 from Dubai Terminal 3")
+    assert p["type"] == "flight" and p["conf"] == "X7K9QP" and p["start"] == "2027-03-12"
+    h = gmail.parse_booking("Reservation confirmed at Hotel Roma", "x@booking.com", "Confirmation number: 123ABC. Check-in: March 14, 2027")
+    assert h["type"] == "hotel" and h["conf"] == "123ABC" and h["start"] == "2027-03-14"
+    assert gmail.parse_booking("Weekly newsletter", "n@x.com", "Ten things you should know") is None
+    assert gmail.parse_date("on 03/04/2027") == "2027-04-03"   # day/month

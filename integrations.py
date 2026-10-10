@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 import requests
 from flask import request, jsonify
 
-INTEGRATIONS = ["calendar_feeds", "telegram", "web_push", "weather", "garmin", "gmail", "wealth", "ai", "backup"]
+INTEGRATIONS = ["calendar_feeds", "telegram", "web_push", "weather", "fx", "garmin", "gmail", "wealth", "ai", "backup"]
 _last = {}
 
 
@@ -270,6 +270,19 @@ def tick(raw_db, set_state, kv_get, settings, now_iso, upsert):
     if now - _last.get("feeds", 0) > 20 * 60:
         _last["feeds"] = now
         refresh_feeds(raw_db, set_state, settings)
+    if now - _last.get('gmail', 0) > 6 * 3600 and os.environ.get('GMAIL_USER'):
+        _last['gmail'] = now
+        try:
+            import gmail
+            gmail.sync(upsert, raw_db, set_state, settings, now_iso)
+        except Exception as e:
+            print('gmail:', e)
+    if now - _last.get('auto', 0) > 1800:
+        _last['auto'] = now
+        try:
+            auto_reminders(raw_db, set_state, settings, now_iso, upsert)
+        except Exception as e:
+            print('auto_reminders:', e)
     c = raw_db()
     tz = ZoneInfo(s["timezone"])
     hhmm = datetime.now(tz).strftime("%H:%M")
@@ -296,3 +309,58 @@ def tick(raw_db, set_state, kv_get, settings, now_iso, upsert):
         upsert(c, {"id": rid, "kind": kind, "data": {"last_fired": d["last_fired"], "fired_n": d["fired_n"]}, "created_at": row["created_at"], "updated_at": now_iso()})
         c.commit()
     c.close()
+
+
+# ---------- auto-generated reminders: document expiries, birthdays, trip departures ----------
+def _patch(c, upsert, now_iso, rid, kind, data):
+    row = c.execute("SELECT created_at FROM records WHERE id=?", (rid,)).fetchone()
+    upsert(c, {"id": rid, "kind": kind, "data": data, "created_at": row["created_at"], "updated_at": now_iso()})
+    c.commit()
+
+
+def auto_reminders(raw_db, set_state, settings, now_iso, upsert):
+    s = settings()
+    tz = ZoneInfo(s["timezone"])
+    now_l = datetime.now(tz)
+    today = now_l.date()
+    c = raw_db()
+    try:
+        if now_l.hour < 7:  # nothing before the morning; quiet hours respected
+            return
+        for r in c.execute("SELECT id,data FROM records WHERE kind='travel_doc' AND deleted_at IS NULL"):
+            d = json.loads(r["data"])
+            if not d.get("expiry"):
+                continue
+            left = (date.fromisoformat(d["expiry"]) - today).days
+            done = set(d.get("notified") or [])
+            due = [a for a in (180, 90, 30, 7) if left <= a and a not in done]
+            if due and left >= -365:
+                ok, _ = telegram_send(s, f"\u23f3 {d.get('name', 'Document')} {'expires in %d days' % left if left >= 0 else 'expired %d days ago' % -left}")
+                _patch(c, upsert, now_iso, r["id"], "travel_doc", {"notified": sorted(done | set(due))})
+        for r in c.execute("SELECT id,data FROM records WHERE kind='person' AND deleted_at IS NULL"):
+            d = json.loads(r["data"])
+            b = d.get("birthday") or ""
+            if len(b) >= 5 and b[-5:] == today.strftime("%m-%d") and d.get("notified_year") != today.year:
+                telegram_send(s, f"\U0001f382 {d.get('name')}'s birthday today")
+                _patch(c, upsert, now_iso, r["id"], "person", {"notified_year": today.year})
+        for r in c.execute("SELECT id,data FROM records WHERE kind='trip' AND deleted_at IS NULL"):
+            d = json.loads(r["data"])
+            if not d.get("start") or d.get("status") == "done":
+                continue
+            n = (date.fromisoformat(d["start"]) - today).days
+            done = set(d.get("notified") or [])
+            for key, hit in (("T7", n == 7), ("T1", n == 1)):
+                if hit and key not in done:
+                    telegram_send(s, f"\u2708 {d.get('name')} starts in {n} day{'s' if n > 1 else ''}. Check the list: passport, visa, packing.")
+                    done.add(key)
+                    _patch(c, upsert, now_iso, r["id"], "trip", {"notified": sorted(done)})
+        for r in c.execute("SELECT id,data FROM records WHERE kind='booking' AND deleted_at IS NULL"):
+            d = json.loads(r["data"])
+            if d.get("type") != "flight" or not d.get("start") or not d.get("start_time") or d.get("notified_3h"):
+                continue
+            dep = datetime.fromisoformat(d["start"] + "T" + d["start_time"]).replace(tzinfo=tz)
+            if timedelta(0) <= dep - now_l <= timedelta(hours=3):
+                telegram_send(s, f"\u2708 Leave soon: {d.get('title')} departs {d['start_time']}" + (f", terminal {d['terminal']}" if d.get("terminal") else ""))
+                _patch(c, upsert, now_iso, r["id"], "booking", {"notified_3h": True})
+    finally:
+        c.close()

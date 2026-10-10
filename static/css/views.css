@@ -48,3 +48,27 @@
 .hc { width: 16px; height: 16px; border-radius: 4px 2px 4px 2px; border: 1.2px solid var(--rule); cursor: pointer; display: block; } .hc.on { background: var(--d-goals); border-color: var(--d-goals); } .hc.fut { opacity: .3; cursor: default; }
 .radar { width: 100%; max-width: 360px; display: block; margin: 0 auto; }
 input[type=range] { accent-color: var(--pen); min-height: 32px; }
+
+/* travel */
+:root { --foil: #d3ccb4; --foil-dot: #bfb79c; }
+:root[data-theme="dark"] { --foil: #2f352b; --foil-dot: #3b4236; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --foil: #2f352b; --foil-dot: #3b4236; } }
+.worldcard { padding: 12px; } .worldbox { touch-action: none; cursor: grab; } .world { width: 100%; height: auto; display: block; user-select: none; }
+.world .ct { stroke: var(--paper); stroke-width: .5; vector-effect: non-scaling-stroke; cursor: pointer; transition: fill-opacity .2s, filter .2s; }
+.world .ct:hover { filter: brightness(1.12); stroke: var(--ink); }
+.ct.c-none { fill: url(#foil); } .ct.c-been { fill: var(--pen); fill-opacity: .82; } .ct.c-lived { fill: var(--ink); fill-opacity: .85; } .ct.c-want { fill: url(#hatch); } .ct.c-planned { fill: var(--d-travel); fill-opacity: .85; }
+.world.draw .ct { stroke: var(--ink-3); stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .9s var(--ease) forwards; animation-delay: calc(var(--i) * 6ms); }
+.sw { display: inline-block; width: 16px; height: 12px; border-radius: 3px; border: 1px solid var(--ink-3); } .sw.c-none { background: var(--foil); } .sw.c-been { background: var(--pen); } .sw.c-lived { background: var(--ink); } .sw.c-want { background: repeating-linear-gradient(45deg, var(--d-goals) 0 2px, var(--panel) 2px 5px); } .sw.c-planned { background: var(--d-travel); }
+.stats { display: flex; gap: 28px; flex-wrap: wrap; padding: 4px 4px 0; } .stats .stat b { font-size: 2.3rem; }
+.passport { overflow: hidden; } .stamp { position: absolute; right: 18px; top: 14px; width: 92px; height: 92px; border: 3px double var(--d-travel); border-radius: 50%; color: var(--d-travel); display: grid; place-content: center; text-align: center; transform: rotate(-12deg); opacity: .75; pointer-events: none; }
+.stamp b { font: 700 1.9rem/1 var(--f-title); } .stamp span { font-size: .72rem; line-height: 1.1; max-width: 70px; }
+.thumb { width: 76px; height: 76px; object-fit: cover; border-radius: 4px; border: 4px solid #fff; box-shadow: var(--shadow); transform: rotate(-1.5deg); } .thumb:nth-child(even) { transform: rotate(1.5deg); }
+.pin.want span { background: var(--d-goals); }
+.trip:hover { transform: rotate(-.3deg); } .trip { transition: transform .2s; }
+.tabs-scroll { overflow-x: auto; }
+.bk { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; }
+
+/* expiry radar */
+.rl-row { display: grid; grid-template-columns: minmax(90px, 160px) 1fr 100px; gap: 12px; align-items: center; padding: 8px 0; } .rl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rl-track { position: relative; height: 4px; background: var(--rule); border-radius: 4px; } .rl-tick { position: absolute; top: -5px; width: 1.5px; height: 14px; background: var(--ink-3); }
+.rl-dot { position: absolute; top: -7px; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; border: 2px solid var(--paper); background: var(--good); } .rl-dot.warn { background: var(--warn); } .rl-dot.bad { background: var(--bad); }
