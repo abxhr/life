@@ -94,3 +94,14 @@ input[type=range] { accent-color: var(--pen); min-height: 32px; }
 .focus-in { max-width: 560px; } .focus-title { font: 700 clamp(2rem, 6vw, 3.4rem)/1.05 var(--f-title); margin: 6px 0 18px; } .focus-clock { font: 700 clamp(4rem, 16vw, 8rem)/1 var(--f-title); color: var(--pen); margin-bottom: 14px; }
 .focus-x { position: absolute; top: 16px; right: 16px; }
 .emerg { max-width: 560px; } .em-row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; margin: 0 0 10px; } .em-row span { color: var(--ink-3); } .em-row b { font: 700 1.5rem/1.15 var(--f-title); }
+
+/* notion-style pieces: icons, covers, toggles, callouts, links, groups */
+.cover { border-radius: 4px; margin: 0 0 12px; border: 1px solid var(--rule); } .pg-icon { font-size: 1.3em; margin-right: 6px; vertical-align: -.1em; font-family: system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+.emoji-grid { display: flex; flex-wrap: wrap; gap: 2px; max-height: 150px; overflow: auto; } .emoji { background: none; border: 1px solid transparent; border-radius: 6px; font-size: 1.4rem; width: 40px; height: 40px; cursor: pointer; font-family: system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif; } .emoji:hover { border-color: var(--ink-3); background: var(--panel-2); }
+.swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--ink-3); cursor: pointer; padding: 0; }
+.toggle { margin: 0 0 8px; border-left: 3px solid var(--rule); padding-left: 10px; } .toggle > summary { cursor: pointer; font-weight: 700; } .toggle-body { padding: 4px 0 0 4px; }
+.callout { border-radius: 4px; padding: 8px 14px; margin: 0 0 10px; background: var(--panel-2); border-left: 4px solid var(--ink-3); } .callout > p:last-child { margin-bottom: 0 !important; } .callout.tip { border-left-color: var(--good); background: color-mix(in srgb, var(--good) 10%, var(--panel)); } .callout.warn, .callout.danger { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--panel)); } .callout.info, .callout.note { border-left-color: var(--pen); background: var(--pen-soft); } .callout.quote { font-style: italic; }
+.links-panel { margin-top: 14px; padding-top: 8px; border-top: 1.5px dashed var(--rule); }
+.gh { cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none; } .gh .car { transition: transform .2s; } .gh[aria-expanded="false"] .car { transform: rotate(-90deg); }
+.sumbar { display: flex; gap: 18px; flex-wrap: wrap; align-items: baseline; padding: 6px 4px; border-top: 1.5px solid var(--ink); margin-top: 4px; } .sumbar b { font: 700 1.3rem var(--f-title); } .sumbar span { color: var(--ink-3); }
+.fav { margin-left: auto; }

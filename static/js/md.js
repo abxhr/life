@@ -21,11 +21,21 @@ function inline(t) {
 }
 
 export function mdToNodes(src) {
-  const out = []; let list = null, code = null, table = null;
-  for (const ln of String(src || '').split('\n')) {
-    let m;
+  const out = [], lines = String(src || '').split('\n'); let list = null, code = null, table = null;
+  for (let n = 0; n < lines.length; n++) {
+    const ln = lines[n]; let m;
     if (/^```/.test(ln)) { if (code) { out.push(code); code = null; } else code = h('pre', { style: { background: 'var(--panel-2)', padding: '8px 12px', borderRadius: '4px', overflowX: 'auto', margin: '0 0 8px' } }); continue; }
     if (code) { code.append(ln + '\n'); continue; }
+    if ((m = /^:::\s*toggle\s*(.*)$/.exec(ln))) {                       // collapsible block:  ::: toggle Title  ...  :::
+      const body = []; let depth = 1; while (++n < lines.length) { if (/^:::\s*toggle/.test(lines[n])) depth++; else if (/^:::\s*$/.test(lines[n]) && --depth === 0) break; body.push(lines[n]); }
+      list = table = null; out.push(h('details', { class: 'toggle' }, h('summary', {}, inline(m[1] || 'More')), h('div', { class: 'toggle-body' }, mdToNodes(body.join('\n'))))); continue;
+    }
+    if (/^>\s?/.test(ln)) {                                               // callout / quote:  > [!tip] Title  /  > text
+      const body = [ln.replace(/^>\s?/, '')]; while (n + 1 < lines.length && /^>\s?/.test(lines[n + 1])) body.push(lines[++n].replace(/^>\s?/, ''));
+      let kind = 'quote', head = null; const k = /^\[!(note|tip|info|warn|warning|danger)\]\s*(.*)$/i.exec(body[0]); if (k) { kind = k[1].toLowerCase().replace('warning', 'warn'); head = k[2]; body.shift(); }
+      list = table = null; out.push(h('div', { class: 'callout ' + kind }, head ? h('b', {}, inline(head)) : '', mdToNodes(body.join('\n')))); continue;
+    }
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(ln)) { list = table = null; out.push(h('hr', { class: 'hr' })); continue; }
     if (/^\s*\|.*\|\s*$/.test(ln)) {
       if (/^\s*\|[\s:|-]+\|\s*$/.test(ln)) continue;
       if (!table) out.push(h('div', { style: { overflowX: 'auto' } }, table = h('table', { class: 'tbl' })));

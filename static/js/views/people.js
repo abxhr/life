@@ -3,6 +3,7 @@ import { h, today, addDays, niceDate, diffDays, ago } from '../util.js';
 import { icon } from '../icons.js';
 import { store } from '../store.js';
 import { modal, toast, empty, field, seg, confirmBox } from '../ui.js';
+import { linksPanel } from '../links.js';
 
 const nextBirthday = (b, T) => { if (!b || b.length < 5) return null; const md = b.slice(-5); let y = +T.slice(0, 4); let d = `${y}-${md}`; if (d < T) d = `${y + 1}-${md}`; return d; };
 export const weeksSince = (last, T) => last ? Math.floor(diffDays(last, T) / 7) : null;
@@ -13,7 +14,7 @@ function edit(id) {
     const f = {}, mk = (k, label, type = 'text', ph = '') => { f[k] = h('input', { class: 'in', type, value: p[k] ?? '', placeholder: ph }); return field(label, f[k]); };
     const details = h('textarea', { class: 'in', value: p.details || '', placeholder: 'Kids’ names, allergies, preferences…' }), gifts = h('textarea', { class: 'in', value: (p.gifts || []).join('\n'), placeholder: 'One gift idea per line' });
     const keep = h('select', { class: 'in' }, [[0, 'No reminder'], [1, 'Every week'], [2, 'Every 2 weeks'], [4, 'Every month'], [8, 'Every 2 months'], [12, 'Every 3 months']].map(([v, l]) => h('option', { value: v, selected: v === (p.keep_weeks || 0) }, l)));
-    d.append(h('h2', {}, id ? 'Edit person' : 'Add a person'), h('div', { class: 'stack' }, mk('name', 'Name'), mk('how', 'How I know them', 'text', 'cousin, college friend, neighbour…'), h('div', { class: 'grid2' }, mk('birthday', 'Birthday', 'date'), mk('anniversary', 'Anniversary', 'date')), h('div', { class: 'grid2' }, field('Keep in touch', keep), mk('last_contact', 'Last spoke', 'date')), mk('phone', 'Phone', 'tel'), field('Details that matter', details), field('Gift ideas', gifts)),
+    d.append(h('h2', {}, id ? 'Edit person' : 'Add a person'), h('div', { class: 'stack' }, mk('name', 'Name'), mk('how', 'How I know them', 'text', 'cousin, college friend, neighbour…'), h('div', { class: 'grid2' }, mk('birthday', 'Birthday', 'date'), mk('anniversary', 'Anniversary', 'date')), h('div', { class: 'grid2' }, field('Keep in touch', keep), mk('last_contact', 'Last spoke', 'date')), mk('phone', 'Phone', 'tel'), field('Details that matter', details), field('Gift ideas', gifts), id ? linksPanel(store.get(id)) : ''),
       h('div', { class: 'actions' }, id ? h('button', { class: 'btn danger', onclick: async () => { if (await confirmBox('Remove ' + p.name + '?', 'Undo is available for a few seconds.', { ok: 'Remove', danger: true })) { store.del(id); close(); toast('Removed', () => store.restore(id)); } } }, icon('trash')) : '', h('span', { class: 'grow' }), h('button', { class: 'btn', onclick: close }, 'Cancel'), h('button', { class: 'btn primary', onclick: () => { if (!f.name.value.trim()) return f.name.focus(); const out = { details: details.value, keep_weeks: +keep.value, gifts: gifts.value.split('\n').map(s => s.trim()).filter(Boolean) }; Object.entries(f).forEach(([k, i]) => out[k] = i.value || null); out.name = f.name.value.trim(); store.put('person', out, id); close(); } }, 'Save')));
   }, { wide: true, label: 'Person' });
 }

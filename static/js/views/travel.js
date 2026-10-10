@@ -7,6 +7,7 @@ import { world, drawMap } from '../worldmap.js';
 import { STATUS, states, stats, countryId, getCountry, setStatus, visitsOf, home, rules, passports, stayEntries } from '../travel-data.js';
 import { km, flightHours, visaStale, stayCalc, tripFits, leaveNeeded, DEFAULT_RULES } from '../travelcore.js';
 import { loadLeaflet } from '../maps.js';
+import { coverStrip, iconSpan } from '../decor.js';
 
 let tab = 'map', animated = false;
 const TABS = [['map', 'Map'], ['trips', 'Trips'], ['cities', 'Cities'], ['go', 'Where can I go?']];
@@ -95,7 +96,7 @@ function tripsTab(box) {
   box.append(h('div', { class: 'row' }, h('span', { class: 'grow' }), h('button', { class: 'btn primary', onclick: () => tripDialog({}, t => (location.hash = '#/travel/t/' + t.id)) }, icon('plus'), 'Plan a trip')));
   const trips = store.list('trip').sort((a, b) => (a.start || '9').localeCompare(b.start || '9')), T = today(), up = trips.filter(t => (t.end || t.start || '9') >= T), past = trips.filter(t => (t.end || t.start || '9') < T).reverse();
   if (!trips.length) { box.append(empty('travel', 'Where next?', 'Plan a trip and get an itinerary, bookings, packing and a visa check in one place.')); return; }
-  const card = t => { const n = t.start ? diffDays(T, t.start) : null; return h('a', { class: 'card trip', href: '#/travel/t/' + t.id, style: { '--dom': 'var(--d-travel)', textDecoration: 'none', color: 'inherit' } }, h('div', { class: 'card-head' }, h('h3', {}, t.name), n != null && n >= 0 ? h('span', { class: 'chip dom' }, n === 0 ? 'today' : `in ${n} day${n > 1 ? 's' : ''}`) : ''), h('div', { class: 'muted' }, t.start ? niceDate(t.start, true) + (t.end && t.end !== t.start ? ' → ' + niceDate(t.end, true) : '') : 'dates tbd'), h('div', { class: 'faint small' }, (t.countries || []).join(' · '))); };
+  const card = t => { const n = t.start ? diffDays(T, t.start) : null; return h('a', { class: 'card trip', href: '#/travel/t/' + t.id, style: { '--dom': 'var(--d-travel)', textDecoration: 'none', color: 'inherit' } }, coverStrip(t), h('div', { class: 'card-head' }, h('h3', {}, iconSpan(t), t.name), n != null && n >= 0 ? h('span', { class: 'chip dom' }, n === 0 ? 'today' : `in ${n} day${n > 1 ? 's' : ''}`) : ''), h('div', { class: 'muted' }, t.start ? niceDate(t.start, true) + (t.end && t.end !== t.start ? ' → ' + niceDate(t.end, true) : '') : 'dates tbd'), h('div', { class: 'faint small' }, (t.countries || []).join(' · '))); };
   if (up.length) box.append(h('h2', {}, 'Coming up'), h('div', { class: 'grid2' }, up.map(card)));
   if (past.length) box.append(h('h2', {}, 'Past'), h('div', { class: 'grid2' }, past.map(card)));
 }

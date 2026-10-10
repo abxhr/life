@@ -4,6 +4,8 @@ import { icon } from '../icons.js';
 import { store } from '../store.js';
 import { modal, toast, empty, field, confirmBox } from '../ui.js';
 import { inMode } from '../state.js';
+import { coverStrip, iconSpan, decorDialog } from '../decor.js';
+import { linksPanel } from '../links.js';
 
 const TEMPLATES = {
   plain: ['Plain', ''], meeting: ['Meeting', '## Attendees\n\n## Notes\n\n## Decisions\n\n## Actions\n- [ ] '], journal: ['Daily journal', '## Gratitude\n\n## One win\n\n## One lesson\n'],
@@ -43,7 +45,7 @@ export default async function render(el, ctx) {
     let notes = store.list('note', n => inMode(n) && !n.archived === (filter !== 'archived') && (filter !== 'pinned' || n.pinned));
     if (q.trim().length > 1) { try { const r = await store.api('/api/search?q=' + encodeURIComponent(q)); const ids = new Set(r.filter(x => x.kind === 'note').map(x => x.id)); notes = notes.filter(n => ids.has(n.id)); } catch { const s = q.toLowerCase(); notes = notes.filter(n => ((n.title || '') + (n.body || '')).toLowerCase().includes(s)); } }
     notes.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updated_at.localeCompare(a.updated_at));
-    listBox.replaceChildren(...(notes.length ? notes.slice(0, 200).map(n => h('a', { class: 'note-row' + (n.id === id ? ' sel' : ''), href: '#/notes/' + n.id }, h('b', {}, title(n)), h('span', { class: 'meta' }, ago(n.updated_at), (n.tags || []).slice(0, 2).map(t => ' #' + t)), h('span', { class: 'snip' }, (n.body || '').replace(/[#*\[\]\-]/g, '').slice(0, 70)))) : [empty('notes', q ? 'Nothing found' : 'No notes yet', 'Press N, or tap +.')]));
+    listBox.replaceChildren(...(notes.length ? notes.slice(0, 200).map(n => h('a', { class: 'note-row' + (n.id === id ? ' sel' : ''), href: '#/notes/' + n.id }, h('b', {}, iconSpan(n), title(n)), h('span', { class: 'meta' }, ago(n.updated_at), (n.tags || []).slice(0, 2).map(t => ' #' + t)), h('span', { class: 'snip' }, (n.body || '').replace(/[#*\[\]\-]/g, '').slice(0, 70)))) : [empty('notes', q ? 'Nothing found' : 'No notes yet', 'Press N, or tap +.')]));
   };
   search.addEventListener('input', debounce(() => { q = search.value; paintList(); }, 180)); paintList();
 
@@ -63,14 +65,20 @@ export default async function render(el, ctx) {
     narrow ? h('a', { class: 'btn icon sm ghost', href: '#/notes', 'aria-label': 'Back to notes' }, icon('chevL')) : '',
     h('div', { class: 'seg' }, h('button', { 'data-m': 'edit', onclick: () => show('edit') }, 'Write'), h('button', { 'data-m': 'view', onclick: () => show('view') }, 'Read')),
     h('button', { class: 'btn sm', title: 'Checklist', onclick: () => insert('\n- [ ] ') }, icon('check'), 'Task'),
+    h('button', { class: 'btn sm', title: 'Heading', onclick: () => insert('\n## ') }, 'H'),
+    h('button', { class: 'btn sm', title: 'Collapsible toggle', onclick: () => insert('\n::: toggle Title\nHidden text\n:::\n') }, icon('chevD'), 'Toggle'),
+    h('button', { class: 'btn sm', title: 'Callout box', onclick: () => insert('\n> [!tip] Heads up\n> Say it here\n') }, icon('zap'), 'Callout'),
+    h('button', { class: 'btn sm', title: 'Divider', onclick: () => insert('\n---\n') }, '—'),
     h('button', { class: 'btn sm', onclick: () => attach.click() }, icon('upload'), 'Attach'), attach,
     h('button', { class: 'btn sm', onclick: () => modal((d, close) => { d.append(h('h2', {}, 'Ask the assistant'), h('p', { class: 'muted small' }, 'You’ll see the result first; nothing is saved until you approve.'), h('div', { class: 'stack-s' }, [['summarise', 'Summarise'], ['tasks', 'Extract tasks'], ['cleanup', 'Clean up'], ['list', 'Turn into a list'], ['translate', 'Translate']].map(([k, l]) => h('button', { class: 'btn', style: { justifyContent: 'flex-start' }, onclick: async () => { close(); try { const j = await store.api('/api/ai/note-action', { method: 'POST', body: JSON.stringify({ action: k, text: body.value }) }); modal((d2, c2) => d2.append(h('h2', {}, l), h('div', { class: 'note-prev' }, mdToNodes(j.text)), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: c2 }, 'Discard'), h('button', { class: 'btn', onclick: () => { navigator.clipboard?.writeText(j.text); toast('Copied'); c2(); } }, 'Copy'), h('button', { class: 'btn', onclick: () => { insert('\n\n' + j.text + '\n'); c2(); } }, 'Append to note'), k === 'cleanup' ? h('button', { class: 'btn primary', onclick: () => { body.value = j.text; body.dispatchEvent(new Event('input')); show(mode); c2(); } }, 'Replace note') : '')), { wide: true }); } catch (e) { toast(e.message); } } }, l)))); }) }, icon('assistant'), 'Assist'), h('span', { class: 'grow' }), tags,
     h('button', { class: 'btn icon sm' + (n.pinned ? ' primary' : ''), 'aria-label': n.pinned ? 'Unpin' : 'Pin', onclick: () => store.put('note', { pinned: !n.pinned }, id) }, icon('pin')),
+    h('button', { class: 'btn icon sm', 'aria-label': 'Icon and cover', title: 'Icon & cover', onclick: () => decorDialog(n, () => ctx.refresh()) }, icon('star')),
+    h('button', { class: 'btn icon sm', 'aria-label': 'Duplicate note', title: 'Duplicate', onclick: () => { const c = store.put('note', { title: (n.title ? n.title + ' (copy)' : ''), body: store.get(id).body, tags: n.tags || [], type: n.type || 'plain', icon: n.icon || null, cover: n.cover || null }); toast('Duplicated'); location.hash = '#/notes/' + c.id; } }, icon('copy')),
     h('button', { class: 'btn icon sm', 'aria-label': 'History', onclick: () => history_(n) }, icon('clock')),
     h('button', { class: 'btn icon sm', 'aria-label': n.archived ? 'Unarchive' : 'Archive', onclick: () => { store.put('note', { archived: !n.archived }, id); location.hash = '#/notes'; } }, icon('inbox')),
     h('button', { class: 'btn icon sm danger', 'aria-label': 'Delete', onclick: async () => { if (await confirmBox('Delete this note?', 'You can undo for a few seconds, and it stays in version history on the server.', { ok: 'Delete', danger: true })) { store.del(id); location.hash = '#/notes'; toast('Note deleted', () => store.restore(id)); } } }, icon('trash')));
   const bl = backlinksOf(n);
-  ed.append(h('div', { class: 'card' }, tin, tb, body, prev, bl.length ? h('div', { class: 'backlinks' }, h('div', { class: 'small muted' }, 'Linked from'), h('div', { class: 'row wrap' }, bl.map(b => h('a', { class: 'chip', href: '#/notes/' + b.id }, title(b))))) : ''));
+  ed.append(h('div', { class: 'card' }, coverStrip(n, { tall: true }), h('div', { class: 'row' }, iconSpan(n), h('div', { class: 'grow' }, tin)), tb, body, prev, linksPanel(n, { onChange: () => ctx.refresh() }), bl.length ? h('div', { class: 'backlinks' }, h('div', { class: 'small muted' }, 'Linked from'), h('div', { class: 'row wrap' }, bl.map(b => h('a', { class: 'chip', href: '#/notes/' + b.id }, title(b))))) : ''));
   show(mode);
   if (n.type === 'plain' && !n.body && !n.title) setTimeout(() => body.focus(), 50);
 }

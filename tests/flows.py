@@ -1,6 +1,7 @@
 """Interactive flows (desktop + mobile): tasks, inbox triage, calendar views, notes, lists incl. map. Zero console errors required."""
 import os, sys, subprocess, time, tempfile, shutil, urllib.request
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); PORT = 5057; BASE = f"http://127.0.0.1:{PORT}"
 SHOTS = "--shots" in sys.argv; OUT = os.path.join(ROOT, "tests", "shots")
 
@@ -89,6 +90,7 @@ def run(pg, mobile):
     pg.fill("input[aria-label=PIN]", "2468"); pg.keyboard.press("Enter"); pg.wait_for_selector(".emerg:has-text('In an emergency')")
     go("lists"); pg.click("a.card >> nth=0"); pg.click("button:has-text('Link')"); pg.click(".dialog button:has-text('Create link')"); pg.wait_for_selector("input[aria-label='Share link']"); pg.keyboard.press("Escape")
     go("today"); pg.keyboard.press("Control+k"); pg.fill(".dialog input", "Focus mode"); pg.wait_for_timeout(400); pg.keyboard.press("Enter"); pg.wait_for_selector(".focus .focus-clock"); pg.click(".focus button:has-text('Start')"); pg.wait_for_timeout(1200); pg.click(".focus .focus-x")
+    import flows_notion; flows_notion.run(pg, mobile, go, SHOTS, OUT)
     # work mode toggle
     pg.click(f"{'.topbar' if mobile else '.spine'} .mode-sw button[data-m=work]"); go("tasks"); pg.click(".seg button:has-text('Upcoming')"); pg.wait_for_selector(".item .t:has-text('Send deck')")
 

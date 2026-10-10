@@ -9,6 +9,8 @@ import { rules, passports, home } from '../travel-data.js';
 import { buildChecklist, routeKm, flightHours, km } from '../travelcore.js';
 import { loadLeaflet } from '../maps.js';
 import { shareLink } from '../share.js';
+import { coverStrip, iconSpan, decorDialog } from '../decor.js';
+import { linksPanel } from '../links.js';
 import { types } from '../lists-core.js';
 
 let tab = 'itinerary';
@@ -126,8 +128,10 @@ async function recap(box, t, w) {
 export default async function render(el, ctx) {
   const t = store.get(ctx.rest[1]); if (!t) { el.append(empty('travel', 'That trip is gone', null, h('a', { class: 'btn', href: '#/travel?tab=trips' }, 'All trips'))); return; }
   const w = await world(), n = t.start ? diffDays(today(), t.start) : null;
-  el.append(h('div', { class: 'page-head' }, h('a', { class: 'btn icon sm ghost', href: '#/travel', 'aria-label': 'Back' }, icon('chevL')), h('h1', { class: 'squig', style: { '--dom': 'var(--d-travel)' } }, t.name), h('span', { class: 'sub' }, t.start ? niceDate(t.start, true) + (t.end && t.end !== t.start ? ' → ' + niceDate(t.end, true) : '') : ''), n != null && n >= 0 ? h('span', { class: 'chip dom', style: { '--dom': 'var(--d-travel)' } }, n === 0 ? 'today' : `in ${n} days`) : '', h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => travelMode(t, w) }, icon('download'), t.offline_ready ? 'Offline ✓' : 'Travel mode'), h('button', { class: 'btn sm', onclick: () => shareLink('trip', t.id) }, icon('link'), 'Share'), h('button', { class: 'btn sm', onclick: () => tripDialog(t) }, icon('edit'), 'Edit')),
+  el.append(coverStrip(t, { tall: true }));
+  el.append(h('div', { class: 'page-head' }, h('a', { class: 'btn icon sm ghost', href: '#/travel', 'aria-label': 'Back' }, icon('chevL')), h('h1', { class: 'squig', style: { '--dom': 'var(--d-travel)' } }, iconSpan(t), t.name), h('span', { class: 'sub' }, t.start ? niceDate(t.start, true) + (t.end && t.end !== t.start ? ' → ' + niceDate(t.end, true) : '') : ''), n != null && n >= 0 ? h('span', { class: 'chip dom', style: { '--dom': 'var(--d-travel)' } }, n === 0 ? 'today' : `in ${n} days`) : '', h('span', { class: 'grow' }), h('button', { class: 'btn sm', 'aria-label': 'Icon and cover', title: 'Icon & cover', onclick: () => decorDialog(store.get(t.id), () => ctx.refresh()) }, icon('star')), h('button', { class: 'btn sm', 'aria-label': 'Duplicate trip', title: 'Duplicate trip (plans and packing, not bookings)', onclick: () => { const { id: _i, kind: _k, created_at: _c, updated_at: _u, deleted_at: _d, _t, notified, offline_ready, checklist, ...rest } = store.get(t.id); const c = store.put('trip', { ...rest, name: t.name + ' (copy)', status: 'planned' }); store.list('trip_item', x => x.trip === t.id).forEach(x => { const { id: a, kind: b, created_at: c1, updated_at: c2, deleted_at: c3, _t: c4, ...r2 } = x; store.put('trip_item', { ...r2, trip: c.id }); }); store.list('packing_item', x => x.trip === t.id).forEach(x => store.put('packing_item', { trip: c.id, text: x.text, group: x.group, done: false })); toast('Trip duplicated'); location.hash = '#/travel/t/' + c.id; } }, icon('copy')), h('button', { class: 'btn sm', onclick: () => travelMode(t, w) }, icon('download'), t.offline_ready ? 'Offline ✓' : 'Travel mode'), h('button', { class: 'btn sm', onclick: () => shareLink('trip', t.id) }, icon('link'), 'Share'), h('button', { class: 'btn sm', onclick: () => tripDialog(t) }, icon('edit'), 'Edit')),
     h('div', { style: { margin: '0 0 18px', overflowX: 'auto' } }, seg(TABS, tab, v => { tab = v; ctx.refresh(); })));
   const box = h('div', { class: 'stack' }); el.append(box);
   await ({ itinerary, bookings, docs, packing, budget, check, journal, recap })[tab](box, t, w);
+  el.append(linksPanel(store.get(t.id), { onChange: () => ctx.refresh() }));
 }

@@ -18,7 +18,7 @@ export const SECTIONS = [
 const VIEWS = { today: () => import('./views/today.js'), inbox: () => import('./views/inbox.js'), tasks: () => import('./views/tasks.js'), calendar: () => import('./views/calendar.js'),
   notes: () => import('./views/notes.js'), lists: () => import('./views/lists.js'), goals: () => import('./views/goals.js'), travel: () => import('./views/travel.js'),
   health: () => import('./views/health.js'), assistant: () => import('./views/assistant.js'), review: () => import('./views/review.js'), settings: () => import('./views/settings.js'),
-  work: () => import('./views/workcapture.js'), do: () => import('./views/do.js'), admin: () => import('./views/admin.js'), people: () => import('./views/people.js'), vault: () => import('./views/vault.js') };
+  work: () => import('./views/workcapture.js'), do: () => import('./views/do.js'), admin: () => import('./views/admin.js'), trash: () => import('./views/trash.js'), people: () => import('./views/people.js'), vault: () => import('./views/vault.js') };
 
 let cur = { name: '', cleanup: null }, mainEl, pageEl, authed = false;
 
@@ -28,14 +28,14 @@ async function boot() {
   try { me = await (await fetch('/api/me', { credentials: 'same-origin' })).json(); } catch { net = false; me = { authed: false }; }
   if (!net && lsGet('life_authed') === '1') { // offline: open straight from the on-device copy (the service worker served this page)
     try { window.__settings = JSON.parse(lsGet('life_settings') || '{}'); applySettings(window.__settings); } catch { /* defaults */ }
-    await store.init(); authed = true; shell(); route(); import('./reminders-ui.js').then(m => m.startReminderWatcher()); registerSW(); return;
+    await store.init(); authed = true; shell(); route(); import('./reminders-ui.js').then(m => m.startReminderWatcher()); import('./automations.js').then(m => m.startAutomations()); registerSW(); return;
   }
   if (!me.authed) { lsSet('life_authed', ''); return loginScreen(net ? me : { ...me, offline: true }); }
   store.setCsrf(me.csrf); lsSet('life_authed', '1');
   try { const s = await store.api('/api/settings'); window.__settings = s; applySettings(s); lsSet('life_settings', JSON.stringify(s)); } catch { try { window.__settings = JSON.parse(lsGet('life_settings') || '{}'); applySettings(window.__settings); } catch { /* defaults */ } }
   await store.init(); authed = true;
   shell(); route(); store.sync();
-  import('./reminders-ui.js').then(m => m.startReminderWatcher());
+  import('./reminders-ui.js').then(m => m.startReminderWatcher()); import('./automations.js').then(m => m.startAutomations());
   registerSW();
 }
 const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -57,8 +57,9 @@ function loginScreen(me) {
 // ---------------- shell ----------------
 function shell() {
   const dom = { notes: '--d-notes', lists: '--d-lists', goals: '--d-goals', travel: '--d-travel', health: '--d-health' };
+  const quick = h('div', { class: 'quick', id: 'quick' });
   const nav = h('nav', { class: 'nav', 'aria-label': 'Sections' }, SECTIONS.map(([id, label, ic]) =>
-    h('a', { href: '#/' + id, 'data-id': id, style: dom[id] ? { '--dom': `var(${dom[id]})` } : null }, icon(ic), h('span', {}, label), id === 'inbox' ? h('span', { class: 'badge hide', id: 'inbox-n' }) : '')));
+    h('a', { href: '#/' + id, 'data-id': id, style: dom[id] ? { '--dom': `var(${dom[id]})` } : null }, icon(ic), h('span', {}, label), id === 'inbox' ? h('span', { class: 'badge hide', id: 'inbox-n' }) : '')), quick);
   const capIn = h('input', { placeholder: 'Capture… (C)', 'aria-label': 'Quick capture', readonly: true, onclick: () => openCapture(), onkeydown: e => { if (e.key === 'Enter') openCapture(); } });
   const modeSw = h('div', { class: 'mode-sw', role: 'group', 'aria-label': 'Mode' }, [['all', 'All'], ['personal', 'Personal'], ['work', 'Work']].map(([m, l]) => h('button', { 'data-m': m, onclick: () => state.setMode(m) }, l)));
   const syncPill = h('div', { class: 'sync-pill', id: 'sync-pill', role: 'status' });
@@ -80,9 +81,19 @@ function shell() {
   let t; store.subscribe(() => { clearTimeout(t); t = setTimeout(onData, 120); });
   onData();
 }
+// ---- favourites (pinned pages & saved views) and recently opened ----
+const hashNow = () => location.hash || '#/today';
+const favs = () => store.list('favorite').sort((x, y) => (x.order || 0) - (y.order || 0) || x.created_at.localeCompare(y.created_at));
+const recents = () => { try { return JSON.parse(localStorage.getItem('recents') || '[]'); } catch { return []; } };
+function noteRecent(label) { const hr = hashNow(); const { rest, q } = parseHash(); if (!rest.length && !q.edit) return; if (favs().some(f => f.href === hr)) return; const r = recents().filter(x => x.href !== hr); r.unshift({ href: hr, label }); try { localStorage.setItem('recents', JSON.stringify(r.slice(0, 8))); } catch { /* private */ } }
+export function toggleFav(label) { const hr = hashNow(), ex = favs().find(f => f.href === hr); if (ex) { store.del(ex.id); toast('Removed from favourites', () => store.restore(ex.id)); } else { store.put('favorite', { href: hr, label: label || document.title.replace(' · Life', '') }); toast('Pinned to the sidebar'); } }
+function paintQuick() { const box = $('#quick'); if (!box) return; const f = favs(), r = recents().filter(x => !f.some(y => y.href === x.href)).slice(0, 5); box.replaceChildren(
+  f.length ? h('div', { class: 'qh' }, 'Favourites') : '', ...f.map(x => h('a', { href: x.href, class: 'q' }, icon('star', 'mini'), h('span', {}, x.label))),
+  r.length ? h('div', { class: 'qh' }, 'Recent') : '', ...r.map(x => h('a', { href: x.href, class: 'q' }, icon('clock', 'mini'), h('span', {}, x.label)))); }
 const paintMode = () => document.querySelectorAll('.mode-sw button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.m === state.mode)));
 
 function onData() {
+  paintQuick();
   const n = store.list('inbox').filter(inMode).length, b = $('#inbox-n'); if (b) { b.textContent = n; b.classList.toggle('hide', !n); }
   const st = store.status(), p = $('#sync-pill'); if (p) p.textContent = !navigator.onLine ? 'offline · ' + st.pending + ' waiting' : st.pending ? st.pending + ' change' + (st.pending > 1 ? 's' : '') + ' waiting' : st.lastErr ? 'sync paused' : 'saved';
   const a = document.activeElement, typing = a && pageEl && pageEl.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
@@ -116,12 +127,16 @@ async function render(soft) {
   if (my !== token) return;
   cur.name = name; pageEl.replaceChildren(el); window.scrollTo(0, scroll);
   document.title = (SECTIONS.find(s => s[0] === name)?.[1] || 'Life') + ' · Life';
+  const hd = pageEl.querySelector('.page-head'); if (hd && !hd.querySelector('.fav')) { const isF = favs().some(f => f.href === hashNow()); const lab = (hd.querySelector('h1') || {}).textContent; hd.append(h('button', { class: 'btn icon sm ghost fav', 'aria-label': isF ? 'Unpin from favourites' : 'Pin to favourites', 'aria-pressed': String(isF), title: isF ? 'Unpin' : 'Pin to the sidebar', style: isF ? { color: 'var(--d-goals)' } : null, onclick: () => toggleFav(lab) }, icon('star'))); }
+  noteRecent((hd && hd.querySelector('h1') || {}).textContent || document.title);
+  paintQuick();
   if (!soft) { mainEl.focus({ preventScroll: true }); }
 }
 function moreView() {
   const rest = SECTIONS.filter(s => !(window.__settings?.tabs || ['today', 'tasks', 'calendar', 'notes']).slice(0, 4).includes(s[0]));
-  const extra = [['people', 'People', 'user'], ['vault', 'Documents', 'shield'], ['work', 'Work capture', 'briefcase'], ['admin', 'Life admin', 'home']];
-  pageEl.replaceChildren(h('div', { class: 'page-head' }, h('h1', { class: 'squig' }, 'More')), h('div', { class: 'stack-s' }, [...rest, ...extra].map(([id, l, ic]) => h('a', { class: 'btn', style: { justifyContent: 'flex-start' }, href: '#/' + id }, icon(ic), l))));
+  const extra = [['people', 'People', 'user'], ['vault', 'Documents', 'shield'], ['work', 'Work capture', 'briefcase'], ['admin', 'Life admin', 'home'], ['trash', 'Trash', 'trash']];
+  const f = favs();
+  pageEl.replaceChildren(h('div', { class: 'page-head' }, h('h1', { class: 'squig' }, 'More')), f.length ? h('div', { class: 'stack-s', style: { marginBottom: '16px' } }, h('div', { class: 'small muted' }, 'Favourites'), f.map(x => h('a', { class: 'btn', style: { justifyContent: 'flex-start' }, href: x.href }, icon('star'), x.label))) : '', h('div', { class: 'stack-s' }, [...rest, ...extra].map(([id, l, ic]) => h('a', { class: 'btn', style: { justifyContent: 'flex-start' }, href: '#/' + id }, icon(ic), l))));
 }
 
 // ---------------- command palette & shortcuts ----------------
@@ -129,9 +144,9 @@ export function palette() {
   modal((d, close) => {
     const inp = h('input', { class: 'in', placeholder: 'Go to, create, or search…', 'aria-label': 'Command palette', autofocus: true }), res = h('div', { class: 'res', role: 'listbox' });
     let items = [], sel = 0;
-    const acts = () => [...SECTIONS.map(([id, l, ic]) => ({ l: 'Go to ' + l, ic, run: () => go(id) })),
+    const acts = () => [...store.list('button').map(b => ({ l: 'Button: ' + b.label, ic: 'zap', run: () => import('./automations.js').then(m => m.pressButton(b)) })), ...favs().map(f => ({ l: f.label, ic: 'star', run: () => { location.hash = f.href; } })), ...SECTIONS.map(([id, l, ic]) => ({ l: 'Go to ' + l, ic, run: () => go(id) })),
       { l: 'New capture', ic: 'plus', run: () => openCapture() }, { l: 'New task', ic: 'tasks', run: () => { go('tasks'); setTimeout(() => document.dispatchEvent(new CustomEvent('new-task')), 200); } },
-      { l: 'New note', ic: 'notes', run: () => go('notes/new') }, { l: 'Work capture page', ic: 'briefcase', run: () => go('work') }, { l: 'Focus mode (deep work)', ic: 'zap', run: () => import('./focus.js').then(m => m.openFocus()) }, { l: 'Log an expense (wealth app)', ic: 'send', run: () => expenseDialog() }, { l: 'Life admin', ic: 'home', run: () => go('admin') }, { l: 'People', ic: 'user', run: () => go('people') }, { l: 'Toggle dark mode', ic: 'moon', run: () => state.setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark') }];
+      { l: 'New note', ic: 'notes', run: () => go('notes/new') }, { l: 'Work capture page', ic: 'briefcase', run: () => go('work') }, { l: 'Focus mode (deep work)', ic: 'zap', run: () => import('./focus.js').then(m => m.openFocus()) }, { l: 'Log an expense (wealth app)', ic: 'send', run: () => expenseDialog() }, { l: 'Life admin', ic: 'home', run: () => go('admin') }, { l: 'Trash (restore deleted things)', ic: 'trash', run: () => go('trash') }, { l: 'People', ic: 'user', run: () => go('people') }, { l: 'Toggle dark mode', ic: 'moon', run: () => state.setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark') }];
     const paint = () => { clear(res); items.forEach((it, i) => res.append(h('button', { role: 'option', 'aria-selected': String(i === sel), onclick: () => { close(); it.run(); } }, icon(it.ic || 'search'), h('span', { class: 'grow' }, it.l), it.sub ? h('span', { class: 'faint small' }, it.sub) : ''))); };
     const find = debounce(async () => {
       const q = inp.value.trim().toLowerCase(); const a = acts().filter(x => !q || x.l.toLowerCase().includes(q)).slice(0, 8);

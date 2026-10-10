@@ -5,6 +5,7 @@ import { icon } from './icons.js';
 import { store } from './store.js';
 import { modal, field } from './ui.js';
 import { completeTask } from './tasks-core.js';
+import { nearbyDue } from './geo-core.js';
 
 const shown = new Map();   // id -> ms of last display (this session)
 let box;
@@ -42,4 +43,11 @@ export function check() {
     try { if (Notification.permission === 'granted' && document.hidden) new Notification((crit ? 'Important: ' : '') + (it.rec.title || it.rec.text)); } catch { /* not allowed */ }
   }
 }
-export function startReminderWatcher() { setTimeout(check, 1500); setInterval(check, 20000); store.subscribe(() => setTimeout(check, 300)); }
+// ---- "remind me near a place": uses the browser's location while Life is open (web apps can't geofence in the background; Telegram/push can't know where you are) ----
+let watching = false; const seen = new Set();
+function startGeo() {
+  if (watching || !navigator.geolocation || !store.list('task', t => t.near && !t.done).length) return;
+  const go = () => { if (watching) return; watching = true; navigator.geolocation.watchPosition(p => { const pos = { lat: p.coords.latitude, lon: p.coords.longitude }; for (const t of nearbyDue(pos, store.list('task', x => x.near && !x.done), seen)) { seen.add(t.id); layer().append(card({ kind: 'task', rec: { ...t, title: 'You’re nearby: ' + t.title } })); } }, () => {}, { maximumAge: 60000, timeout: 20000 }); };
+  navigator.permissions?.query({ name: 'geolocation' }).then(r => { if (r.state === 'granted') go(); else if (r.state === 'prompt' && sessionStorage.getItem('geoAsked') !== '1') { sessionStorage.setItem('geoAsked', '1'); go(); } }).catch(() => {});
+}
+export function startReminderWatcher() { setTimeout(startGeo, 3000); setTimeout(check, 1500); setInterval(check, 20000); store.subscribe(() => setTimeout(() => { check(); startGeo(); }, 300)); }

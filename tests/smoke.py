@@ -41,6 +41,9 @@ def main():
                     assert st['scheduler']['last_ok'] and not st['scheduler']['last_error'], f"background scheduler not healthy: {st['scheduler']}"
                     for r in ROUTES:
                         pg.goto(f"{BASE}/#/{r}"); pg.wait_for_selector(".view, .page > *", timeout=8000); pg.wait_for_timeout(350)
+                        if name == "mobile" and scheme == "light":
+                            over = pg.evaluate("""() => [...document.querySelectorAll('.page *')].filter(e => { const r = e.getBoundingClientRect(); if (r.right <= 394 || r.width === 0) return false; for (let p = e; p && p.classList; p = p.parentElement) { const o = getComputedStyle(p).overflowX; if (o === 'auto' || o === 'scroll' || o === 'hidden') return false; if (getComputedStyle(p).position === 'fixed') return false; } return true; }).slice(0, 3).map(e => e.tagName + '.' + String(e.className).slice(0, 30))""")
+                            assert not over, f"mobile horizontal overflow on #{r}: {over}"
                         if SHOTS: pg.screenshot(path=f"{OUT}/{name}-{scheme}-{r}.png", full_page=False)
                     ctx.close()
             b.close()

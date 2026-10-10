@@ -34,6 +34,9 @@ Reach it from your phone: **[SETUP-PHONE.md](SETUP-PHONE.md)** (Tailscale + HTTP
 | **Review** | Weekly (auto-assembled, saved as a note), monthly, and the **year in review** poster (print to PDF) |
 | **More** | People, Life admin (maintenance, warranties, subscriptions, decisions, someday, yearly checklist, **emergency card** encrypted with your PIN, review cards, meals), Work capture |
 
+### Notion-style building blocks
+Favourites & saved views (☆ on any page or filtered task view; they appear in the sidebar with your recently opened pages) · **Trash** with restore (and delete-forever) · **Duplicate** tasks, notes, list items, lists and trips · **Relations**: link any item to any other, with backlinks · page **icons & covers** · rich notes with **toggles, callouts, dividers** · custom list fields with **formulas** (`price * qty`, `daysSince(date)`, `if(...)`) and a summary bar (totals, averages, % done) · **group by** (lists and tasks) with collapsible groups · **CSV** import/export for lists and tasks, Markdown-file import for notes · **buttons** (one-tap task templates) and **automations** (when a task is done / a list item's status changes / on a schedule → create a task or note, add a win, stamp a date) · habit rollups (days since last, this month, 30-day rate) · “remind me near a place” (works while Life is open: browsers can't geofence in the background).
+
 Keyboard: `C` capture · `T` task · `N` note · `/` or `Ctrl+K` palette · `Ctrl+J` assistant sheet · `G` then `D/T/N/L/C/I/G/H/V/R/S` go-to · `J/K` move, `X` done, `E` edit, `1–4` priority · `?` list.
 
 ## Your data

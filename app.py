@@ -420,6 +420,26 @@ def search():
     return jsonify([{"id": r["id"], "kind": r["kind"], "snippet": r["sn"], "title": json.loads(r["data"]).get("title") or json.loads(r["data"]).get("name") or ""} for r in rows])
 
 
+@app.post("/api/trash/purge")
+@login_required
+def trash_purge():
+    """Permanently delete records that are already in the trash (explicit user action). ids=[...] or all=true."""
+    j = request.get_json() or {}
+    c = db()
+    if j.get("all"):
+        ids = [r["id"] for r in c.execute("SELECT id FROM records WHERE deleted_at IS NOT NULL AND kind NOT IN ('note_version')")]
+    else:
+        ids = [i for i in (j.get("ids") or []) if isinstance(i, str)][:2000]
+    n = 0
+    for rid in ids:
+        r = c.execute("SELECT id FROM records WHERE id=? AND deleted_at IS NOT NULL", (rid,)).fetchone()   # never touches live records
+        if r:
+            c.execute("DELETE FROM records WHERE id=?", (rid,)); c.execute("DELETE FROM fts WHERE id=?", (rid,)); c.execute("DELETE FROM records WHERE kind='note_version' AND json_extract(data,'$.note')=?", (rid,)); n += 1
+    c.commit()
+    audit("trash_purge", n)
+    return jsonify(ok=True, purged=n, ids=ids if not j.get("all") else [])
+
+
 @app.get("/api/sync-log")
 @login_required
 def sync_log():

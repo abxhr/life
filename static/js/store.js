@@ -4,7 +4,7 @@ import { uid, nowIso } from './util.js';
 
 const recs = new Map();           // id -> record (flat)
 const outbox = new Map();         // id -> {id, kind, data, created_at, updated_at, deleted_at?, v}
-const subs = new Set();
+const subs = new Set(), hooks = new Set();
 let idb = null, since = '', csrf = '', ver = 0, syncing = false, lastSync = null, lastErr = '';
 
 const open = () => new Promise((res, rej) => {
@@ -21,6 +21,9 @@ const notify = () => subs.forEach(f => { try { f(); } catch (e) { console.error(
 export const store = {
   setCsrf(t) { csrf = t; },
   subscribe(f) { subs.add(f); return () => subs.delete(f); },
+  addHook(f) { hooks.add(f); return () => hooks.delete(f); },          // f(kind, record, changedFields, previousData) after every local write (automations)
+  trashed() { const skip = new Set(['note_version', 'done_log', 'habit_log', 'assistant_action', 'assistant_conversation', 'briefing', 'srs_card', 'suggest_fb', 'push_sub']); return [...recs.values()].filter(r => r.deleted_at && !skip.has(r.kind)).map(flat).sort((a, b) => b.deleted_at.localeCompare(a.deleted_at)); },
+  forget(ids) { ids.forEach(id => { recs.delete(id); outbox.delete(id); if (idb) { tx('records', 'readwrite', s => s.delete(id)); tx('outbox', 'readwrite', s => s.delete(id)); } }); notify(); },
   async init() {
     try { idb = await open(); } catch { idb = null; }
     if (idb) {
@@ -45,7 +48,7 @@ export const store = {
     const cur = recs.get(id);
     const data = { ...(cur ? cur.data : {}) }, ft = { ...(data._t || {}) }, delta = { _t: {} };
     for (const [k, v] of Object.entries(patch)) {
-      if (['id', 'kind', 'created_at', 'updated_at', 'deleted_at', '_t'].includes(k)) continue;
+      if (['id', 'kind', 'created_at', 'updated_at', 'deleted_at', '_t'].includes(k)) { if (k === 'kind') console.error('store.put: "kind" is reserved and was ignored (use another field name)', kind); continue; }
       if (JSON.stringify(data[k]) === JSON.stringify(v) && cur) continue;
       data[k] = v; ft[k] = t; delta[k] = v; delta._t[k] = t;
     }
@@ -54,6 +57,8 @@ export const store = {
     recs.set(id, rec);
     this._queue(id, kind, delta, rec);
     notify();
+    const changed = Object.keys(delta).filter(k => k !== '_t');
+    if (changed.length) hooks.forEach(f => { try { f(kind, flat(rec), changed, cur ? cur.data : {}); } catch (e) { console.error(e); } });
     return flat(rec);
   },
   del(id) { const r = recs.get(id); if (!r) return; r.deleted_at = nowIso(); r.updated_at = r.deleted_at; this._queue(id, r.kind, { _t: {} }, r, true); notify(); },

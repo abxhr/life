@@ -57,6 +57,7 @@ export default async function render(el, ctx) {
 
   const lowDays = store.list('mood_log').filter(m => m.day >= addDays(T, -2) && m.mood <= 2).length >= 3;
   store.list('future_note', n => !n.delivered && ((n.deliver_on && n.deliver_on <= T) || (n.when_low && lowDays))).slice(0, 1).forEach(n => el.append(h('div', { class: 'sticky rise', style: { marginBottom: '16px' } }, h('div', { class: 'small' }, 'A note from past you'), h('div', { class: 'big' }, n.text), h('button', { class: 'btn sm', style: { '--b': 'currentColor', marginTop: '8px' }, onclick: () => store.put('future_note', { delivered: true }, n.id) }, 'Thanks, me'))));
+  const qb = await import('../automations.js').then(m => m.buttonsRow()); if (qb) el.append(qb);
   const grid = h('div', { class: 'today-grid' }), L = h('div', { class: 'stack' }), R = h('div', { class: 'stack' }); grid.append(L, R); el.append(grid);
 
   if (evening) { shutdown(L, T, open, ctx); } else {
@@ -90,7 +91,7 @@ export default async function render(el, ctx) {
   }
 
   // this week's top three (set in last week's review)
-  const mon = addDays(T, -((dow(T) + 6) % 7)), lastRev = store.list('review', r => r.kind === 'week' && r.start === addDays(mon, -7))[0];
+  const mon = addDays(T, -((dow(T) + 6) % 7)), lastRev = store.list('review', r => r.period === 'week' && r.start === addDays(mon, -7))[0];
   if (lastRev && (lastRev.top3 || []).length) R.append(h('section', { class: 'card', style: { '--dom': 'var(--d-goals)' } }, h('div', { class: 'card-head' }, h('h3', {}, 'This week’s three')), lastRev.top3.map(t => { const tk = store.list('task', x => x.title === t)[0]; return h('div', { class: 'item' + (tk && tk.done ? ' done' : '') }, icon(tk && tk.done ? 'check' : 'goals', 'mini'), h('span', { class: 't' }, t)); })));
   // people: birthdays this week and who's due a hello
   const ppl = store.list('person'), bd = ppl.filter(p => p.birthday && p.birthday.length >= 5 && (() => { const d = `${T.slice(0, 4)}-${p.birthday.slice(-5)}`; const n = diffDays(T, d); return n >= 0 && n <= 7; })());

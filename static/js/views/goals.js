@@ -6,6 +6,8 @@ import { modal, toast, empty, field, seg, confirmBox, promptBox } from '../ui.js
 import { progress, AREAS, LIVE, addWin, achieve, activeBig } from '../goals-core.js';
 import { streak, toggleHabit, doneOn, logsFor, weekCount } from '../habits-core.js';
 import { openCapture } from '../capture.js';
+import { coverStrip, iconSpan, decorDialog } from '../decor.js';
+import { linksPanel } from '../links.js';
 
 let tab = 'goals', wealth = null;
 const TABS = [['goals', 'Goals'], ['habits', 'Habits'], ['wheel', 'Life wheel'], ['wins', 'Wins'], ['vision', 'Vision']];
@@ -46,10 +48,11 @@ function goalsTab(box) {
   box.append(h('div', { class: 'row' }, h('span', { class: 'muted grow' }, `${activeBig().length} of 3 big goals`), h('button', { class: 'btn primary', onclick: () => editGoal() }, icon('plus'), 'New goal')));
   if (!all.length) { box.append(empty('goals', 'What’s worth wanting?', 'Add one goal and the reason behind it. Everything else can wait.', h('button', { class: 'btn primary', onclick: () => editGoal() }, 'Add a goal'))); return; }
   const card = g => { const p = progress(g, wealth), tasks = store.list('task', t => t.goal_id === g.id && !t.done).length, hb = store.list('habit', x => x.goal_id === g.id);
-    return h('article', { class: 'card goal' + (g.status === 'paused' ? ' paused' : ''), style: { '--dom': 'var(--d-goals)' } }, h('div', { class: 'card-head' }, g.quarterly ? h('span', { class: 'chip dom' }, 'big goal') : '', h('h3', { style: { flex: 1 } }, g.title), h('button', { class: 'btn icon sm ghost', 'aria-label': 'Edit goal', onclick: () => editGoal(g.id) }, icon('edit'))),
+    return h('article', { class: 'card goal' + (g.status === 'paused' ? ' paused' : ''), style: { '--dom': 'var(--d-goals)' } }, coverStrip(g), h('div', { class: 'card-head' }, g.quarterly ? h('span', { class: 'chip dom' }, 'big goal') : '', h('h3', { style: { flex: 1 } }, iconSpan(g), g.title), h('button', { class: 'btn icon sm ghost', 'aria-label': 'Icon and cover', onclick: () => decorDialog(g, () => {}) }, icon('star')), h('button', { class: 'btn icon sm ghost', 'aria-label': 'Edit goal', onclick: () => editGoal(g.id) }, icon('edit'))),
       h('p', { class: 'muted', style: { margin: '0 0 8px', fontStyle: 'italic' } }, '“' + g.why + '”'), bar(p.pct, g.title + ' progress'),
       h('div', { class: 'row wrap small muted', style: { marginTop: '6px' } }, h('span', {}, p.label), g.deadline ? h('span', {}, '· by ' + niceDate(g.deadline, true)) : '', p.pace ? h('span', { class: 'chip ' + (p.pace === 'behind' ? 'warn' : 'good') }, p.pace === 'ahead' ? 'ahead of pace' : p.pace === 'on' ? 'on pace' : 'behind pace') : '', p.projected ? h('span', {}, '· on track for ' + niceDate(p.projected, true)) : '', tasks ? h('span', {}, `· ${tasks} task${tasks > 1 ? 's' : ''}`) : '', hb.length ? h('span', {}, '· ' + hb.map(x => x.name).join(', ')) : ''),
       (g.milestones || []).length ? h('div', { class: 'stack-s', style: { marginTop: '8px' } }, g.milestones.map(m => h('label', { class: 'row' }, h('input', { type: 'checkbox', class: 'chk', checked: m.done, onchange: e => { const ms = g.milestones.map(x => x.id === m.id ? { ...x, done: e.target.checked } : x); store.put('goal', { milestones: ms }, g.id); if (e.target.checked) { addWin(`${m.title} — ${g.title}`, 'milestone', { goal: g.id }); toast('Milestone ✓ — added to your wins'); } } }), h('span', { class: m.done ? 'faint' : '' }, m.title)))) : '',
+      linksPanel(g),
       g.status === 'active' ? h('div', { class: 'row', style: { marginTop: '8px' } }, g.target && !g.live ? h('button', { class: 'btn sm', onclick: async () => { const v = await promptBox('Where are you now?', { value: String(g.target.current ?? '') }); if (v !== null && v !== '' && !isNaN(+v)) store.put('goal', { target: { ...g.target, current: +v } }, g.id); } }, 'Update number') : '', h('button', { class: 'btn sm', onclick: () => { achieve(g); toast('Achieved. Take a moment.'); } }, icon('check'), 'Mark achieved')) : '');
   };
   box.append(h('div', { class: 'grid2' }, act.map(card)));
@@ -62,13 +65,19 @@ function heat(hb) { // last 14 weeks, Monday-first columns
   for (let w = 0; w < 14; w++) { const col = h('div', {}); for (let d = 0; d < 7; d++) { const ds = addDays(start, w * 7 + d); col.append(h('span', { class: 'hc' + (logs.has(ds) ? ' on' : '') + (ds > T ? ' fut' : ''), title: ds, onclick: ds <= T ? () => { toggleHabit(hb, ds); } : null })); } cols.append(col); }
   return cols;
 }
+// rollups: the numbers people actually ask of a habit
+function habitRollups(hb, logs) {
+  const T = today(), ym = T.slice(0, 7), last = [...logs].sort().pop(), d30 = logs.filter(d => d > addDays(T, -30)).length;
+  const target30 = hb.freq === 'weekly' ? Math.round((hb.per_week || 3) * 30 / 7) : 30;
+  return [h('span', {}, last ? (last === T ? 'done today' : `${Math.floor((new Date(T) - new Date(last)) / 864e5)} days since last`) : 'never done'), h('span', {}, `· ${logs.filter(d => d.startsWith(ym)).length} this month`), h('span', {}, `· ${Math.min(100, Math.round(d30 / target30 * 100))}% of the last 30 days`), h('span', {}, `· ${logs.length} in total`)];
+}
 function habitsTab(box) {
   const habits = store.list('habit', x => !x.archived).sort((a, b) => a.created_at.localeCompare(b.created_at));
   box.append(h('div', { class: 'row' }, h('span', { class: 'muted grow' }, 'One missed day won’t break a streak — you get a shield.'), h('button', { class: 'btn primary', onclick: () => editHabit() }, icon('plus'), 'New habit')));
   if (!habits.length) { box.append(empty('check', 'Tiny things, repeated', 'Add a habit like “read 20 min” and tick it from Today.')); return; }
   habits.forEach(hb => { const logs = [...logsFor(hb.id)]; const byDow = Array(7).fill(0); logs.forEach(d => byDow[dow(d)]++); const best = logs.length >= 14 ? byDow.indexOf(Math.max(...byDow)) : -1;
     box.append(h('article', { class: 'card', style: { '--dom': 'var(--d-goals)' } }, h('div', { class: 'card-head' }, h('h3', { style: { flex: 1 } }, hb.name), h('span', { class: 'chip' + (doneOn(hb) ? ' on' : '') }, hb.freq === 'weekly' ? `${weekCount(hb)}/${hb.per_week} this week` : doneOn(hb) ? 'done today' : 'not yet'), h('button', { class: 'btn icon sm ghost', 'aria-label': 'Edit habit', onclick: () => editHabit(hb.id) }, icon('edit'))),
-      h('div', { class: 'row wrap' }, h('b', { style: { font: '700 1.8rem var(--f-title)' } }, streak(hb)), h('span', { class: 'muted' }, hb.freq === 'weekly' ? 'week streak' : 'day streak'), best >= 0 ? h('span', { class: 'faint small' }, `· best on ${['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'][best]}`) : '', hb.goal_id && store.get(hb.goal_id) ? h('span', { class: 'chip' }, '→ ' + store.get(hb.goal_id).title) : ''), heat(hb))); });
+      h('div', { class: 'row wrap' }, h('b', { style: { font: '700 1.8rem var(--f-title)' } }, streak(hb)), h('span', { class: 'muted' }, hb.freq === 'weekly' ? 'week streak' : 'day streak'), best >= 0 ? h('span', { class: 'faint small' }, `· best on ${['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'][best]}`) : '', hb.goal_id && store.get(hb.goal_id) ? h('span', { class: 'chip' }, '→ ' + store.get(hb.goal_id).title) : ''), h('div', { class: 'row wrap small muted', style: { marginTop: '4px' } }, ...habitRollups(hb, logs)), heat(hb))); });
 }
 function editHabit(id) {
   const hb = id ? store.get(id) : { name: '', freq: 'daily', per_week: 3 };
