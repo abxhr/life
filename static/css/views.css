@@ -41,3 +41,10 @@
 .note-body { min-height: 52vh; width: 100%; font-size: 1.2rem; } .note-prev { min-height: 40vh; padding: 8px 4px; }
 .note-prev h2, .note-prev h3, .note-prev h4 { margin: 12px 0 4px; } .backlinks { margin-top: 20px; border-top: 1.5px dashed var(--rule); padding-top: 8px; }
 @media (max-width: 860px) { .notes-grid { grid-template-columns: 1fr; } .notes-grid.has-note .notes-list { display: none; } .notes-grid:not(.has-note) .notes-ed { display: none; } .notes-list { position: static; max-height: none; } }
+
+/* goals, habits, wheel */
+.pbar { height: 12px; border: 1.5px solid var(--ink); border-radius: 99px 8px 99px 8px / 8px 99px 8px 99px; overflow: hidden; background: var(--panel-2); } .pbar i { display: block; height: 100%; background: repeating-linear-gradient(135deg, var(--d-goals) 0 6px, color-mix(in srgb, var(--d-goals) 70%, var(--paper)) 6px 12px); transition: width .6s var(--ease); }
+.goal.paused { opacity: .6; } .heat { display: flex; gap: 3px; margin-top: 10px; overflow-x: auto; } .heat > div { display: grid; gap: 3px; }
+.hc { width: 16px; height: 16px; border-radius: 4px 2px 4px 2px; border: 1.2px solid var(--rule); cursor: pointer; display: block; } .hc.on { background: var(--d-goals); border-color: var(--d-goals); } .hc.fut { opacity: .3; cursor: default; }
+.radar { width: 100%; max-width: 360px; display: block; margin: 0 auto; }
+input[type=range] { accent-color: var(--pen); min-height: 32px; }

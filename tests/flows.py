@@ -36,6 +36,14 @@ def run(pg, mobile):
     if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-list-map.png")
     pg.click(".seg button:has-text('Board')"); pg.wait_for_selector("h3:has-text('want to go')")
     pg.click("button:has-text('Surprise me')"); pg.wait_for_selector(".dialog:has-text('How about')"); pg.keyboard.press("Escape")
+    # goals, habits, wheel, do
+    go("goals"); pg.click("button:has-text('New goal')"); pg.fill(".dialog input[placeholder^='What do you want']", "Run 100 km"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector(".toast:has-text('why')")
+    pg.fill(".dialog textarea", "Because I feel better when I move"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector(".card.goal h3:has-text('Run 100 km')")
+    pg.click(".seg button:has-text('Habits')"); pg.click("button:has-text('New habit')"); pg.fill(".dialog input[placeholder^='e.g.']", "Read 20 minutes"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector("h3:has-text('Read 20 minutes')")
+    pg.click(".seg button:has-text('Life wheel')"); pg.wait_for_selector("svg.radar"); pg.click(".seg button:has-text('Wins')"); pg.click(".seg button:has-text('Vision')"); pg.wait_for_selector("h3:has-text('My why')")
+    go("today"); pg.click(".chip:has-text('Read 20 minutes')"); pg.wait_for_selector(".toast:has-text('Read 20 minutes')")
+    go("do"); pg.wait_for_selector(".card .btn:has-text('Start')")
+    if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-do.png")
     # work mode toggle
     pg.click(f"{'.topbar' if mobile else '.spine'} .mode-sw button[data-m=work]"); go("tasks"); pg.click(".seg button:has-text('Upcoming')"); pg.wait_for_selector(".item .t:has-text('Send deck')")
 

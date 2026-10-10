@@ -47,6 +47,8 @@ export default async function render(el, ctx) {
   const cached = store.list('briefing', b => b.day === T)[0];
   el.append(h('p', { class: 'hero-line rise', style: { maxWidth: '30ch' } }, cached ? cached.text : briefing(T, items, open, over.length, sleepH)));
 
+  const lowDays = store.list('mood_log').filter(m => m.day >= addDays(T, -2) && m.mood <= 2).length >= 3;
+  store.list('future_note', n => !n.delivered && ((n.deliver_on && n.deliver_on <= T) || (n.when_low && lowDays))).slice(0, 1).forEach(n => el.append(h('div', { class: 'sticky rise', style: { marginBottom: '16px' } }, h('div', { class: 'small' }, 'A note from past you'), h('div', { class: 'big' }, n.text), h('button', { class: 'btn sm', style: { '--b': 'currentColor', marginTop: '8px' }, onclick: () => store.put('future_note', { delivered: true }, n.id) }, 'Thanks, me'))));
   const grid = h('div', { class: 'today-grid' }), L = h('div', { class: 'stack' }), R = h('div', { class: 'stack' }); grid.append(L, R); el.append(grid);
 
   if (evening) { shutdown(L, T, open, ctx); } else {
@@ -95,7 +97,7 @@ export default async function render(el, ctx) {
     h('div', { class: 'stat-row' }, stat(gd.sleep_h ? `${Math.floor(gd.sleep_h)}h${String(Math.round((gd.sleep_h % 1) * 60)).padStart(2, '0')}` : '–', 'sleep'), stat(gd.body_battery ?? '–', 'battery'), stat(gd.steps ? gd.steps.toLocaleString() : '–', 'steps'))));
 
   // what should I do?
-  R.append(h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'What should I do?')), h('p', { class: 'muted', style: { margin: '0 0 10px' } }, 'Free time? I’ll suggest from your own lists.'), h('a', { class: 'btn sm', href: '#/goals?tab=do' }, icon('star'), 'Suggest')));
+  R.append(h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'What should I do?')), h('p', { class: 'muted', style: { margin: '0 0 10px' } }, 'Free time? I’ll suggest from your own lists.'), h('a', { class: 'btn sm', href: '#/do' }, icon('star'), 'Suggest')));
 
   // motivation: own words > own wins > progress > quotes
   const vis = store.list('vision_item'), wins = store.list('win').sort((a, b) => b.created_at.localeCompare(a.created_at));

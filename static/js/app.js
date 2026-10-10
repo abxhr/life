@@ -17,7 +17,7 @@ export const SECTIONS = [
 const VIEWS = { today: () => import('./views/today.js'), inbox: () => import('./views/inbox.js'), tasks: () => import('./views/tasks.js'), calendar: () => import('./views/calendar.js'),
   notes: () => import('./views/notes.js'), lists: () => import('./views/lists.js'), goals: () => import('./views/goals.js'), travel: () => import('./views/travel.js'),
   health: () => import('./views/health.js'), assistant: () => import('./views/assistant.js'), review: () => import('./views/review.js'), settings: () => import('./views/settings.js'),
-  work: () => import('./views/workcapture.js'), people: () => import('./views/people.js'), vault: () => import('./views/vault.js') };
+  work: () => import('./views/workcapture.js'), do: () => import('./views/do.js'), people: () => import('./views/people.js'), vault: () => import('./views/vault.js') };
 
 let cur = { name: '', cleanup: null }, mainEl, pageEl, authed = false;
 
