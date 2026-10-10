@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest==9.1.1
+playwright==1.63.0
+# one-off tooling used to build static/vendor/world-meta.json (not needed to run or test)
+# pycountry==26.2.16
+# pycountry-convert==0.7.2

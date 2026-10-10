@@ -156,7 +156,7 @@ def register(app, login_required, db, raw_db, set_state, kv_get, kv_set, setting
     # ---------- read-tool execution ----------
     def run_read(name, inp, modules, health_ok):
         if name == "search_notes":
-            m = " ".join(w + "*" for w in re.sub(r"[^\w\s]", " ", inp.get("query", "")).split())
+            m = " ".join('"' + w + '"*' for w in re.sub(r"[^\w\s]", " ", inp.get("query", "")).split())
             if not m:
                 return []
             rows = db().execute("SELECT f.id,f.kind,r.data FROM fts f JOIN records r ON r.id=f.id WHERE fts MATCH ? AND r.deleted_at IS NULL LIMIT 12", (m,)).fetchall()

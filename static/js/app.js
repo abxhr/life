@@ -31,6 +31,7 @@ async function boot() {
   try { const s = await store.api('/api/settings'); window.__settings = s; Object.assign(cfg, { tz: s.timezone, name: s.name, currency: s.currency, workDays: s.work_days, workStart: s.work_start, workEnd: s.work_end, eveningFrom: s.evening_from }); } catch { /* offline: defaults */ }
   await store.init(); authed = true;
   shell(); route(); store.sync();
+  import('./reminders-ui.js').then(m => m.startReminderWatcher());
   registerSW();
 }
 

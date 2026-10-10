@@ -107,3 +107,11 @@ def test_gmail_booking_parser():
     assert gmail.parse_booking("Weekly newsletter", "n@x.com", "Ten things you should know") is None
     assert gmail.parse_date("on 03/04/2027") == "2027-04-03"   # day/month
 
+
+
+def test_wealth_endpoints_fail_soft(cli, monkeypatch):
+    j = cli.get("/api/wealth/summary").get_json(); assert j == {"configured": False}          # not set up: hidden, no error
+    cli.post("/api/settings", json={"wealth_url": "http://127.0.0.1:9", "wealth_token": "tok-123456"}, headers=cli.h)
+    j = cli.get("/api/wealth/summary").get_json(); assert j["configured"] is True and "unreachable" in j["error"]       # unreachable: still 200, no stack trace
+    r = cli.post("/api/wealth/expense", json={"amount": 45}, headers=cli.h); assert r.status_code == 502 and "error" in r.get_json()
+    assert cli.get("/api/settings").get_json()["wealth_token"] == "set", "the token is never sent back to the browser"

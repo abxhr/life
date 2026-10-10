@@ -10,7 +10,7 @@
   --sticky: #fff0a3; --sticky-ink: #3a3314; --tape: rgba(223, 207, 150, .72);
   --cover: #25304b; --cover-ink: #f3edda; --cover-2: #34426a;
   /* one tiny accent per domain */
-  --d-travel: #0f7e85; --d-health: #c2483a; --d-work: #4a5a6b; --d-goals: #a8700f; --d-notes: #6b4fa0; --d-lists: #2f7d3a;
+  --d-travel: #0f7e85; --d-health: #c2483a; --d-work: #4a5a6b; --d-goals: #8c5a09; --d-notes: #6b4fa0; --d-lists: #2f7d3a;
   --shadow: 0 1px 0 rgba(0,0,0,.04), 0 2px 6px rgba(60,50,20,.08);
   /* type */
   --f-hand: "Patrick Hand", "Segoe Print", "Bradley Hand", cursive;

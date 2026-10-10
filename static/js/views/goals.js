@@ -10,7 +10,7 @@ import { openCapture } from '../capture.js';
 let tab = 'goals', wealth = null;
 const TABS = [['goals', 'Goals'], ['habits', 'Habits'], ['wheel', 'Life wheel'], ['wins', 'Wins'], ['vision', 'Vision']];
 
-function bar(p) { return h('div', { class: 'pbar', role: 'progressbar', 'aria-valuenow': p, 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('i', { style: { width: p + '%' } })); }
+function bar(p, label = 'Progress') { return h('div', { class: 'pbar', role: 'progressbar', 'aria-label': label, 'aria-valuenow': p, 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('i', { style: { width: p + '%' } })); }
 
 function editGoal(id) {
   const g = id ? store.get(id) : { title: '', why: '', area: 'health', status: 'active', milestones: [], target: null };
@@ -47,7 +47,7 @@ function goalsTab(box) {
   if (!all.length) { box.append(empty('goals', 'What’s worth wanting?', 'Add one goal and the reason behind it. Everything else can wait.', h('button', { class: 'btn primary', onclick: () => editGoal() }, 'Add a goal'))); return; }
   const card = g => { const p = progress(g, wealth), tasks = store.list('task', t => t.goal_id === g.id && !t.done).length, hb = store.list('habit', x => x.goal_id === g.id);
     return h('article', { class: 'card goal' + (g.status === 'paused' ? ' paused' : ''), style: { '--dom': 'var(--d-goals)' } }, h('div', { class: 'card-head' }, g.quarterly ? h('span', { class: 'chip dom' }, 'big goal') : '', h('h3', { style: { flex: 1 } }, g.title), h('button', { class: 'btn icon sm ghost', 'aria-label': 'Edit goal', onclick: () => editGoal(g.id) }, icon('edit'))),
-      h('p', { class: 'muted', style: { margin: '0 0 8px', fontStyle: 'italic' } }, '“' + g.why + '”'), bar(p.pct),
+      h('p', { class: 'muted', style: { margin: '0 0 8px', fontStyle: 'italic' } }, '“' + g.why + '”'), bar(p.pct, g.title + ' progress'),
       h('div', { class: 'row wrap small muted', style: { marginTop: '6px' } }, h('span', {}, p.label), g.deadline ? h('span', {}, '· by ' + niceDate(g.deadline, true)) : '', p.pace ? h('span', { class: 'chip ' + (p.pace === 'behind' ? 'warn' : 'good') }, p.pace === 'ahead' ? 'ahead of pace' : p.pace === 'on' ? 'on pace' : 'behind pace') : '', p.projected ? h('span', {}, '· on track for ' + niceDate(p.projected, true)) : '', tasks ? h('span', {}, `· ${tasks} task${tasks > 1 ? 's' : ''}`) : '', hb.length ? h('span', {}, '· ' + hb.map(x => x.name).join(', ')) : ''),
       (g.milestones || []).length ? h('div', { class: 'stack-s', style: { marginTop: '8px' } }, g.milestones.map(m => h('label', { class: 'row' }, h('input', { type: 'checkbox', class: 'chk', checked: m.done, onchange: e => { const ms = g.milestones.map(x => x.id === m.id ? { ...x, done: e.target.checked } : x); store.put('goal', { milestones: ms }, g.id); if (e.target.checked) { addWin(`${m.title} — ${g.title}`, 'milestone', { goal: g.id }); toast('Milestone ✓ — added to your wins'); } } }), h('span', { class: m.done ? 'faint' : '' }, m.title)))) : '',
       g.status === 'active' ? h('div', { class: 'row', style: { marginTop: '8px' } }, g.target && !g.live ? h('button', { class: 'btn sm', onclick: async () => { const v = await promptBox('Where are you now?', { value: String(g.target.current ?? '') }); if (v !== null && v !== '' && !isNaN(+v)) store.put('goal', { target: { ...g.target, current: +v } }, g.id); } }, 'Update number') : '', h('button', { class: 'btn sm', onclick: () => { achieve(g); toast('Achieved. Take a moment.'); } }, icon('check'), 'Mark achieved')) : '');

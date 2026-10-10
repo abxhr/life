@@ -291,6 +291,10 @@ def tick(raw_db, set_state, kv_get, settings, now_iso, upsert):
             extras.tick_extras(raw_db, set_state, settings, now_iso, upsert)
         except Exception as e:
             print('wealth snapshot:', e)
+    if now - _last.get('tgpoll', 0) > 30:
+        _last['tgpoll'] = now
+        telegram_poll(raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert)
+        daily_agenda(raw_db, set_state, kv_get, kv_set, settings)
     if now - _last.get('auto', 0) > 1800:
         _last['auto'] = now
         try:
@@ -312,11 +316,23 @@ def tick(raw_db, set_state, kv_get, settings, now_iso, upsert):
         if quiet and not crit:
             continue
         title = d.get("title") or d.get("text") or "Reminder"
-        ok, err = telegram_send(s, ("‼ " if crit else "⏰ ") + title)
-        if err and "not configured" not in err:
-            set_state("telegram", False, err)
-        elif ok:
-            set_state("telegram", True)
+        chan = d.get("channels") or "all"          # all | telegram | push | inapp
+        if chan in ("all", "telegram"):
+            ok, err = telegram_send(s, ("‼ " if crit else "⏰ ") + title)
+            if err and "not configured" not in err:
+                set_state("telegram", False, err)
+            elif ok:
+                set_state("telegram", True)
+        if chan in ("all", "push"):
+            try:
+                import push
+                n, perr = push.send_all(raw_db, os.environ.get("LIFE_DATA", "data"), ("Important: " if crit else "") + title, "", rid)
+                if n:
+                    set_state("web_push", True, "", f"{n} device(s)")
+                elif perr:
+                    set_state("web_push", False, perr)
+            except Exception as ex:
+                set_state("web_push", False, str(ex)[:160])
         d["last_fired"] = now_iso()
         d["fired_n"] = d.get("fired_n", 0) + 1
         row = c.execute("SELECT created_at FROM records WHERE id=?", (rid,)).fetchone()
@@ -378,3 +394,81 @@ def auto_reminders(raw_db, set_state, settings, now_iso, upsert):
                 _patch(c, upsert, now_iso, r["id"], "booking", {"notified_3h": True})
     finally:
         c.close()
+
+
+# ---------- Telegram inbound (long-poll, so no public URL is needed) + daily agenda ----------
+def agenda_text(raw_db, s):
+    tz = ZoneInfo(s["timezone"])
+    today = datetime.now(tz).date().isoformat()
+    c = raw_db()
+    try:
+        lines = [f"☀ Good morning {s['name']} — {datetime.now(tz).strftime('%A %d %b')}"]
+        ev = []
+        for r in c.execute("SELECT data FROM records WHERE kind='event' AND deleted_at IS NULL"):
+            d = json.loads(r["data"])
+            if d.get("date") == today:
+                ev.append((d.get("start") or "00:00", d.get("title")))
+        for r in c.execute("SELECT title,start,allday FROM feed_events WHERE substr(start,1,10) BETWEEN ? AND ?", (today, today)):
+            if not r["allday"]:
+                ev.append((datetime.fromisoformat(r["start"].replace("Z", "+00:00")).astimezone(tz).strftime("%H:%M"), r["title"]))
+        tasks = []
+        for r in c.execute("SELECT data FROM records WHERE kind='task' AND deleted_at IS NULL"):
+            d = json.loads(r["data"])
+            if not d.get("done") and not d.get("someday") and d.get("due") and d["due"] <= today:
+                tasks.append(("⚠ " if d["due"] < today else "") + d.get("title", ""))
+        if ev:
+            lines.append("\nCalendar:\n" + "\n".join(f"  {t} {n}" for t, n in sorted(ev)))
+        if tasks:
+            lines.append("\nDue / slipped:\n" + "\n".join("  • " + t for t in tasks[:12]))
+        if not ev and not tasks:
+            lines.append("\nNothing scheduled. A clear day.")
+        return "\n".join(lines)
+    finally:
+        c.close()
+
+
+def telegram_poll(raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert):
+    tok, s = os.environ.get("TELEGRAM_BOT_TOKEN"), settings()
+    chat = str(s.get("telegram_chat_id") or "")
+    if not tok or not chat:
+        return
+    try:
+        r = requests.get(f"https://api.telegram.org/bot{tok}/getUpdates", params={"offset": kv_get("tg_offset", 0), "timeout": 0}, timeout=10)
+        r.raise_for_status()
+        c = raw_db()
+        try:
+            for u in r.json().get("result", []):
+                kv_set("tg_offset", u["update_id"] + 1)
+                m = u.get("message") or {}
+                if str((m.get("chat") or {}).get("id")) != chat or not m.get("text"):
+                    continue                                      # only YOUR chat can talk to Life
+                text = m["text"].strip()
+                if text.startswith("/agenda"):
+                    telegram_send(s, agenda_text(raw_db, s))
+                elif text.startswith("/"):
+                    telegram_send(s, "Send me any text to drop it in your inbox. /agenda shows today.")
+                else:
+                    rid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"telegram:{u['update_id']}"))
+                    upsert(c, {"id": rid, "kind": "inbox", "data": {"text": text[:2000], "source": "telegram"}})
+                    c.commit()
+                    telegram_send(s, "✓ in your inbox")
+        finally:
+            c.close()
+        set_state("telegram", True)
+    except Exception as e:
+        set_state("telegram", False, str(e)[:160])
+
+
+def daily_agenda(raw_db, set_state, kv_get, kv_set, settings):
+    s = settings()
+    if not s.get("agenda_push"):
+        return
+    tz = ZoneInfo(s["timezone"]); now = datetime.now(tz)
+    if now.strftime("%H:%M") < s.get("agenda_time", "07:30") or kv_get("last_agenda") == now.date().isoformat():
+        return
+    if now.weekday() not in [(d - 1) % 7 for d in s.get("work_days", [1, 2, 3, 4, 5])] and s.get("agenda_workdays_only", True):
+        kv_set("last_agenda", now.date().isoformat()); return
+    ok, err = telegram_send(s, agenda_text(raw_db, s))
+    kv_set("last_agenda", now.date().isoformat())
+    if not ok and err and "not configured" not in err:
+        set_state("telegram", False, err)

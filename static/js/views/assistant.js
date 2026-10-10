@@ -49,7 +49,7 @@ function actionsTab(box) {
 
 function usageTab(box, st) {
   const u = st.usage || {}, cap = +st.cap || 0, pct = cap ? Math.min(100, u.cost / cap * 100) : 0;
-  box.append(h('section', { class: 'card' }, h('div', { class: 'stat-row', style: { flexWrap: 'wrap' } }, [[`$${(u.cost || 0).toFixed(2)}`, 'this month (estimate)'], [cap ? `$${cap}` : 'none', 'hard cap'], [u.calls || 0, 'requests'], [Math.round(((u.in || 0) + (u.out || 0)) / 1000) + 'k', 'tokens']].map(([n, l]) => h('div', { class: 'stat' }, h('b', {}, n), h('span', {}, l)))), cap ? h('div', { class: 'pbar', style: { marginTop: '10px' } }, h('i', { style: { width: pct + '%' } })) : '', st.over_cap ? h('p', { style: { color: 'var(--bad)' } }, 'Cap reached. The assistant is paused until next month or until you raise the cap. Capture and parsing still work.') : ''));
+  box.append(h('section', { class: 'card' }, h('div', { class: 'stat-row', style: { flexWrap: 'wrap' } }, [[`$${(u.cost || 0).toFixed(2)}`, 'this month (estimate)'], [cap ? `$${cap}` : 'none', 'hard cap'], [u.calls || 0, 'requests'], [Math.round(((u.in || 0) + (u.out || 0)) / 1000) + 'k', 'tokens']].map(([n, l]) => h('div', { class: 'stat' }, h('b', {}, n), h('span', {}, l)))), cap ? h('div', { class: 'pbar', 'aria-hidden': 'true', style: { marginTop: '10px' } }, h('i', { style: { width: pct + '%' } })) : '', st.over_cap ? h('p', { style: { color: 'var(--bad)' } }, 'Cap reached. The assistant is paused until next month or until you raise the cap. Capture and parsing still work.') : ''));
   box.append(h('p', { class: 'faint small' }, `Models: ${st.models.chat} (everyday) · ${st.models.fast} (fast) · ${st.models.plan} (planning)${st.mock ? ' — MOCK MODE' : ''}`));
 }
 

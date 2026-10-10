@@ -92,7 +92,7 @@ DEFAULT_SETTINGS = {
     "theme": "system", "density": "comfortable", "feeds": [], "activities": ["padel", "football", "tennis", "badminton", "bowling", "karting", "hiking", "beach", "board games"],
     "tabs": ["today", "tasks", "calendar", "notes"], "telegram_chat_id": "", "ai_model": "claude-sonnet-5-5", "ai_fast_model": "claude-haiku-5-5",
     "ai_strong_model": "claude-opus-5-5", "ai_monthly_cap_usd": 10, "ai_enabled_modules": ["tasks", "notes", "lists", "goals", "travel"],
-    "persona": "friend", "wealth_url": "", "wealth_token": "", "briefing_ai": True, "mood_prompts": False, "cycle_tracking": False,
+    "persona": "friend", "wealth_url": "", "wealth_token": "", "briefing_ai": True, "mood_prompts": False, "agenda_push": False, "agenda_time": "07:30", "agenda_workdays_only": True, "cycle_tracking": False,
     "home_lat": 25.25, "home_lon": 55.36, "stay_rules": None, "areas": None, "email_in_allowed": [], "ai_health": False, "ai_features": {}, "ai_prices": None, "ai_proactive": {}, "ai_auto_low": False, "year_start_month": 1,
 }
 SECRET_SETTINGS = {"wealth_token"}
@@ -123,7 +123,20 @@ def audit(action, detail=""):
     c.close()
 
 
+def redact(t):
+    t = str(t or "")
+    for k in ("TELEGRAM_BOT_TOKEN", "ANTHROPIC_API_KEY", "GMAIL_APP_PASSWORD", "GARMIN_PASSWORD", "VAPID_PRIVATE_KEY", "LIFE_FERNET_KEY", "LIFE_SECRET"):
+        v = os.environ.get(k)
+        if v and len(v) > 5:
+            t = t.replace(v, "***")
+    w = (kv_get("settings", {}) or {}).get("wealth_token")
+    if w and len(w) > 5:
+        t = t.replace(w, "***")
+    return re.sub(r"bot\d{6,}:[\w-]{20,}", "bot***", re.sub(r"sk-ant-[\w-]+", "sk-ant-***", t))
+
+
 def set_state(name, ok, err="", info=""):
+    err, info = redact(err), redact(info)
     c = raw_db()
     t = now_iso()
     c.execute("""INSERT INTO sync_state(name,last_ok,last_error,last_try,info) VALUES(?,?,?,?,?)
@@ -401,7 +414,7 @@ def search():
     q = re.sub(r"[^\w\s]", " ", request.args.get("q", "")).strip()
     if not q:
         return jsonify([])
-    m = " ".join(w + "*" for w in q.split())
+    m = " ".join('"' + w + '"*' for w in q.split())   # quoted: OR / AND / NEAR are literal words, not FTS operators
     rows = db().execute("""SELECT f.id, f.kind, snippet(fts,2,'[',']','…',10) sn, r.data FROM fts f JOIN records r ON r.id=f.id
         WHERE fts MATCH ? AND r.deleted_at IS NULL ORDER BY rank LIMIT 30""", (m,)).fetchall()
     return jsonify([{"id": r["id"], "kind": r["kind"], "snippet": r["sn"], "title": json.loads(r["data"]).get("title") or json.loads(r["data"]).get("name") or ""} for r in rows])
@@ -659,14 +672,20 @@ def scheduler():
                 last_backup = today
             integrations.tick(raw_db, set_state, kv_get, settings, now_iso, upsert)
         except Exception as e:  # never let the loop die
-            print("scheduler:", e)
+            print("scheduler:", redact(e))
         time.sleep(30)
 
 
 def main():
     init_db()
     threading.Thread(target=scheduler, daemon=True).start()
-    app.run(host=os.environ.get("LIFE_HOST", "127.0.0.1"), port=int(os.environ.get("LIFE_PORT", "5055")), threaded=True)
+    host, port = os.environ.get("LIFE_HOST", "127.0.0.1"), int(os.environ.get("LIFE_PORT", "5055"))
+    if os.environ.get("LIFE_DEBUG") == "1":
+        app.run(host=host, port=port, threaded=True)          # Flask dev server: development only
+    else:
+        from waitress import serve                              # production-grade WSGI server (works on Windows)
+        print(f"Life is running on http://{host}:{port}")
+        serve(app, host=host, port=port, threads=8, ident="life")
 
 
 init_db()

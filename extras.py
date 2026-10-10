@@ -1,5 +1,5 @@
 """Later-phase integrations: wealth app (read-only), more added per phase. Everything fails soft into Data health."""
-import time
+import os, time
 import requests
 from flask import jsonify, request
 from flask import request as _rq
@@ -8,7 +8,8 @@ _cache = {}
 
 
 def register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit):
-    import gmail, garmin, assistant
+    import gmail, garmin, assistant, push
+    push.register(app, login_required, db, raw_db, set_state, now_iso, upsert, audit, os.environ.get('LIFE_DATA', 'data'))
     assistant.register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit)
     garmin.register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit)
 

@@ -9,6 +9,7 @@ import { recLabel } from '../nlp.js';
 import { PRIO, CTX, fromParsed, saveTask, completeTask, uncomplete, sortTasks, isOverdue, projects, subtask } from '../tasks-core.js';
 
 let tab = 'today', proj = null, board = false, selId = null;
+const expanded = new Set();   // groups the user expanded past the first 150 rows (long lists stay fast)
 const TABS = [['today', 'Today'], ['upcoming', 'Upcoming'], ['anytime', 'Anytime'], ['someday', 'Someday'], ['project', 'Projects'], ['context', 'Contexts'], ['done', 'Done']];
 const domOf = t => t.ctx === 'work' || t.ctx === 'work-outside-work' ? 'var(--d-work)' : null;
 
@@ -46,6 +47,7 @@ export function editTask(id, defaults = {}) {
     const project = h('input', { class: 'in', value: f.project || '', list: 'projs', placeholder: 'none' }), pl = h('datalist', { id: 'projs' }, projects().map(p => h('option', { value: p })));
     const tags = h('input', { class: 'in', value: (f.tags || []).join(', '), placeholder: 'home, calls' });
     const remind = h('select', { class: 'in' }, [['none', 'No reminder'], ['at', 'At due time'], ['15', '15 min before'], ['60', '1 hour before'], ['1d', 'Morning before (9:00)']].map(([v, l]) => h('option', { value: v, selected: (f.remind || 'none') === v }, l)));
+    const chan = h('select', { class: 'in' }, [['all', 'Everywhere (push, Telegram, in-app)'], ['telegram', 'Telegram only'], ['push', 'Push only'], ['inapp', 'In-app only']].map(([v, l]) => h('option', { value: v, selected: (f.channels || 'all') === v }, l)));
     const crit = h('input', { type: 'checkbox', class: 'chk', checked: !!f.critical });
     const recSel = h('select', { class: 'in' }, [['', 'Does not repeat'], ['every day', 'Every day'], ['every weekday', 'Every weekday'], ['every week', 'Every week'], ['every 2 weeks', 'Every 2 weeks'], ['every month', 'Every month'], ['every year', 'Every year'], ['__keep', f.recur ? 'Keep: ' + recLabel(f.recur) : 'Custom (type below)']].map(([v, l]) => h('option', { value: v, selected: f.recur ? v === '__keep' : v === '' }, l)));
     const recTxt = h('input', { class: 'in', placeholder: 'or type: every 3 days after done', 'aria-label': 'Custom repeat' });
@@ -61,7 +63,7 @@ export function editTask(id, defaults = {}) {
       let recur = f.recur; const choice = recTxt.value.trim() || recSel.value;
       if (choice && choice !== '__keep') recur = parse('x ' + choice).recur; else if (!choice) recur = null;
       saveTask({ title: title.value.trim(), notes: notes.value, due: due.value || null, due_time: time.value || null, scheduled: sched.value || null, est: +est.value || null, priority: f.priority || 3, ctx: ctx.value, project: project.value.trim() || null,
-        tags: tags.value.split(',').map(s => s.trim().replace(/^#/, '')).filter(Boolean), remind: remind.value, critical: crit.checked, recur, subtasks: f.subtasks || [], someday: someday.checked, goal_id: goalSel.value || null,
+        tags: tags.value.split(',').map(s => s.trim().replace(/^#/, '')).filter(Boolean), remind: remind.value, channels: chan.value, critical: crit.checked, recur, subtasks: f.subtasks || [], someday: someday.checked, goal_id: goalSel.value || null,
         done: !!f.done }, id);
       close(true);
     };
@@ -69,7 +71,7 @@ export function editTask(id, defaults = {}) {
     d.append(h('h2', {}, id ? 'Edit task' : 'New task'), h('div', { class: 'stack' }, title, h('div', { class: 'grid2' }, field('Due', due), field('Time', time)),
       h('div', { class: 'grid2' }, field('Plan to do it on', sched), field('Takes (min)', est)), h('div', {}, h('div', { class: 'small muted' }, 'Priority'), prio),
       h('div', { class: 'grid2' }, field('Context', ctx), field('Project', project)), pl, field('Tags', tags), field('Repeat', recSel), recTxt,
-      h('div', { class: 'grid2' }, field('Reminder', remind), h('label', { class: 'row', style: { alignSelf: 'end', minHeight: '44px' } }, crit, 'Critical: keep nagging until I act')),
+      field('Send reminders via', chan), h('div', { class: 'grid2' }, field('Reminder', remind), h('label', { class: 'row', style: { alignSelf: 'end', minHeight: '44px' } }, crit, 'Critical: keep nagging until I act')),
       field('Notes', notes), h('div', {}, h('div', { class: 'small muted' }, 'Steps'), subWrap, subIn), field('Goal', goalSel), h('label', { class: 'row' }, someday, 'Someday / maybe — keep it out of my way')),
       h('div', { class: 'actions' }, id ? h('button', { class: 'btn danger', onclick: () => { store.del(id); close(true); toast('Task deleted', () => store.restore(id)); } }, icon('trash'), 'Delete') : '', h('span', { class: 'grow' }),
         h('button', { class: 'btn', onclick: close }, 'Cancel'), h('button', { class: 'btn primary', onclick: save }, 'Save')));
@@ -79,7 +81,9 @@ export function editTask(id, defaults = {}) {
 function group(title, items, el, opt = {}) {
   if (!items.length && !opt.keep) return;
   const card = h('section', { class: 'card ' + (opt.cls || ''), style: opt.dom ? { '--dom': opt.dom } : null }, h('div', { class: 'card-head' }, h('h3', {}, title), h('span', { class: 'count' }, items.length || '')), ...(opt.pre ? [opt.pre] : []));
-  items.forEach(t => card.append(taskRow(t, opt.row)));
+  const cap = expanded.has(title) ? Infinity : 150;
+  items.slice(0, cap).forEach(t => card.append(taskRow(t, opt.row)));
+  if (items.length > cap) card.append(h('button', { class: 'btn sm', onclick: () => { expanded.add(title); document.dispatchEvent(new Event('modechange')); } }, `Show ${items.length - cap} more`));
   if (!items.length && opt.emptyMsg) card.append(h('p', { class: 'faint' }, opt.emptyMsg));
   el.append(card);
 }
