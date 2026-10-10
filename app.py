@@ -93,7 +93,7 @@ DEFAULT_SETTINGS = {
     "tabs": ["today", "tasks", "calendar", "notes"], "telegram_chat_id": "", "ai_model": "claude-sonnet-5-5", "ai_fast_model": "claude-haiku-5-5",
     "ai_strong_model": "claude-opus-5-5", "ai_monthly_cap_usd": 10, "ai_enabled_modules": ["tasks", "notes", "lists", "goals", "travel"],
     "persona": "friend", "wealth_url": "", "wealth_token": "", "briefing_ai": True, "mood_prompts": False, "cycle_tracking": False,
-    "home_lat": 25.25, "home_lon": 55.36, "stay_rules": None, "areas": None, "email_in_allowed": [], "ai_health": False, "ai_features": {}, "year_start_month": 1,
+    "home_lat": 25.25, "home_lon": 55.36, "stay_rules": None, "areas": None, "email_in_allowed": [], "ai_health": False, "ai_features": {}, "ai_prices": None, "ai_proactive": {}, "ai_auto_low": False, "year_start_month": 1,
 }
 SECRET_SETTINGS = {"wealth_token"}
 

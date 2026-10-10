@@ -139,7 +139,7 @@ document.addEventListener('keydown', e => {
   if (!authed) return;
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette(); return; }
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') { e.preventDefault(); go('assistant'); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') { e.preventDefault(); import('./chat.js').then(m => m.openAssistant()); return; }
   if (typing || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.scrim')) return;
   const k = e.key.toLowerCase();
   if (gPending && Date.now() - gPending < 1200) { gPending = 0; const m = { t: 'tasks', n: 'notes', l: 'lists', c: 'calendar', i: 'inbox', g: 'goals', h: 'health', v: 'travel', r: 'review', s: 'settings', a: 'assistant', d: 'today' }[k]; if (m) { go(m); e.preventDefault(); } return; }
@@ -151,7 +151,7 @@ document.addEventListener('keydown', e => {
   else if (k === '?') shortcutsSheet();
 });
 function shortcutsSheet() {
-  const rows = [['C', 'Capture'], ['T', 'New task'], ['N', 'New note'], ['/ or Ctrl+K', 'Search & commands'], ['Ctrl+J', 'Assistant'], ['G then D/T/N/L/C/I/G/H/V/R/S', 'Go to Today, Tasks, Notes, Lists, Calendar, Inbox, Goals, Health, Travel, Review, Settings'], ['J / K', 'Move down / up in lists'], ['E', 'Edit selected'], ['X', 'Complete selected'], ['1–4', 'Set priority on selected'], ['?', 'This sheet']];
+  const rows = [['C', 'Capture'], ['T', 'New task'], ['N', 'New note'], ['/ or Ctrl+K', 'Search & commands'], ['Ctrl+J', 'Assistant sheet (knows what you’re looking at)'], ['G then D/T/N/L/C/I/G/H/V/R/S', 'Go to Today, Tasks, Notes, Lists, Calendar, Inbox, Goals, Health, Travel, Review, Settings'], ['J / K', 'Move down / up in lists'], ['E', 'Edit selected'], ['X', 'Complete selected'], ['1–4', 'Set priority on selected'], ['?', 'This sheet']];
   modal((d, close) => { d.append(h('h2', {}, 'Keyboard'), h('table', { class: 'tbl' }, rows.map(([a, b]) => h('tr', {}, h('td', {}, h('kbd', {}, a)), h('td', {}, b)))), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: close }, 'Close'))); });
 }
 

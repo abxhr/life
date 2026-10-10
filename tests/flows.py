@@ -66,6 +66,16 @@ def run(pg, mobile):
     pg.click(".seg button:has-text('Health admin')"); pg.click("section:has-text('Appointments') button:has-text('Add')"); pg.fill(".dialog input >> nth=0", "Dentist"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector(".item:has-text('Dentist')")
     pg.click(".seg button:has-text('Garmin & import')"); pg.wait_for_selector("h3:has-text('Import a file')")
     if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-health.png")
+    # assistant (mock model): stream, confirm card, apply, log, undo
+    go("assistant"); pg.fill("textarea.chat-in", "add task call the bank"); pg.keyboard.press("Enter"); pg.wait_for_selector(".confirm:has-text('Call the bank')")
+    pg.click(".confirm button:has-text('Confirm')"); pg.wait_for_selector(".bubble.assistant:has-text('Done.')")
+    go("tasks"); pg.click(".seg button:has-text('Anytime')"); pg.wait_for_selector(".item .t:has-text('Call the bank')")
+    go("assistant"); pg.click(".seg button:has-text('What it did')"); pg.wait_for_selector(".item:has-text('Created task')"); pg.click(".item:has-text('Created task') button:has-text('Undo')"); pg.wait_for_selector(".toast:has-text('Undone')")
+    go("tasks"); pg.click(".seg button:has-text('Anytime')"); pg.wait_for_timeout(500); assert pg.locator(".item .t:has-text('Call the bank')").count() == 0
+    pg.keyboard.press("Control+j"); pg.wait_for_selector(".assistant-sheet textarea.chat-in"); pg.fill(".assistant-sheet textarea.chat-in", "hello"); pg.keyboard.press("Enter"); pg.wait_for_selector(".assistant-sheet .bubble.assistant:has-text('You said')")
+    if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-assistant.png")
+    pg.keyboard.press("Escape")
+    go("assistant"); pg.click(".seg button:has-text('Privacy & style')"); pg.wait_for_selector("h3:has-text('What the assistant can see')"); pg.click(".seg button:has-text('Usage')"); pg.wait_for_selector(".pbar")
     # work mode toggle
     pg.click(f"{'.topbar' if mobile else '.spine'} .mode-sw button[data-m=work]"); go("tasks"); pg.click(".seg button:has-text('Upcoming')"); pg.wait_for_selector(".item .t:has-text('Send deck')")
 
@@ -73,7 +83,7 @@ def main():
     errs = []
     if SHOTS: os.makedirs(OUT, exist_ok=True)
     for mobile in (False, True):
-        tmp = tempfile.mkdtemp(); srv = subprocess.Popen([sys.executable, os.path.join(ROOT, "app.py")], env=dict(os.environ, LIFE_DATA=tmp, LIFE_PORT=str(PORT)), cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        tmp = tempfile.mkdtemp(); srv = subprocess.Popen([sys.executable, os.path.join(ROOT, "app.py")], env=dict(os.environ, LIFE_DATA=tmp, LIFE_PORT=str(PORT), LIFE_AI_MOCK='1'), cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
             for _ in range(40):
                 try: urllib.request.urlopen(BASE + "/api/me"); break

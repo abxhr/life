@@ -12,6 +12,7 @@ import { pickQuote } from '../quotes.js';
 import { openCapture } from '../capture.js';
 import { moodCard } from '../mood.js';
 
+const addMinStr = (hm, m) => { let [H, M] = hm.split(':').map(Number); const t = Math.min(1439, H * 60 + M + m); return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
 const greet = () => { const H = +timeIn().slice(0, 2); return H < 5 ? 'Still up' : H < 12 ? 'Good morning' : H < 17 ? 'Good afternoon' : 'Good evening'; };
 const MOODS = ['', 'rough', 'low', 'okay', 'good', 'great'];
 
@@ -46,7 +47,13 @@ export default async function render(el, ctx) {
 
   el.append(h('div', { class: 'page-head' }, h('h1', {}, `${greet()}, ${cfg.name}`), h('span', { class: 'sub' }, niceDate(T, true) + (state.mode !== 'all' ? ' · ' + state.mode + ' mode' : ''))));
   const cached = store.list('briefing', b => b.day === T)[0];
-  el.append(h('p', { class: 'hero-line rise', style: { maxWidth: '30ch' } }, cached ? cached.text : briefing(T, items, open, over.length, sleepH)));
+  const briefEl = h('p', { class: 'hero-line rise', style: { maxWidth: '30ch' } }, cached ? cached.text : briefing(T, items, open, over.length, sleepH));
+  el.append(briefEl);
+  const pro = (window.__settings && window.__settings.ai_proactive) || {};
+  if (!cached && pro.morning && !evening) { // opt-in: one AI-written sentence per morning, cached; the rule-based line stays if AI is unavailable
+    const facts = { weekday: wdName(dow(T)), events: items.filter(i => !i.allday).slice(0, 6).map(i => ({ title: i.title, start: i.start })), tasks_due: open.filter(t => t.due === T).length, overdue: over.length, sleep_hours: sleepH };
+    store.api('/api/ai/briefing', { method: 'POST', body: JSON.stringify({ facts }) }).then(j => { if (j && j.text) { store.put('briefing', { day: T, text: j.text }); briefEl.textContent = j.text; } }).catch(() => {});
+  }
 
   const lowDays = store.list('mood_log').filter(m => m.day >= addDays(T, -2) && m.mood <= 2).length >= 3;
   store.list('future_note', n => !n.delivered && ((n.deliver_on && n.deliver_on <= T) || (n.when_low && lowDays))).slice(0, 1).forEach(n => el.append(h('div', { class: 'sticky rise', style: { marginBottom: '16px' } }, h('div', { class: 'small' }, 'A note from past you'), h('div', { class: 'big' }, n.text), h('button', { class: 'btn sm', style: { '--b': 'currentColor', marginTop: '8px' }, onclick: () => store.put('future_note', { delivered: true }, n.id) }, 'Thanks, me'))));
@@ -81,6 +88,12 @@ export default async function render(el, ctx) {
     L.append(due);
   }
 
+  // opt-in nudges (rule-based, computed locally; each toggled separately in Assistant → Privacy & style)
+  const nudges = [];
+  if (pro.stress) { const n = store.list('mood_log', m => m.day >= addDays(T, -6) && (m.tags || []).includes('stressed')).length; if (n >= 4) nudges.push(['You’ve said “stressed” ' + n + ' times this week.', 'Want a lighter week? I can help move a few things.', '#/do']); }
+  if (pro.goals) store.list('goal', g => g.status === 'active' && g.quarterly && g.updated_at < new Date(Date.now() - 14 * 864e5).toISOString()).slice(0, 1).forEach(g => nudges.push([`“${g.title}” hasn’t moved in two weeks.`, 'One small step today?', '#/goals']));
+  if (pro.gaps) { const mn = store.list('mood_log', m => m.day === T && m.energy != null).sort((a, b) => (b.at || '').localeCompare(a.at || ''))[0]; const nb = nowBlock(T); if (mn && mn.energy <= 2 && !nb.now && (!nb.next || nb.next.start > addMinStr(now, 180))) nudges.push(['You’ve got a few free hours and low energy.', 'Here’s something gentle from your own lists.', '#/do']); }
+  nudges.slice(0, 2).forEach(([a, b, href]) => R.append(h('a', { class: 'card', href, style: { textDecoration: 'none', color: 'inherit', borderStyle: 'dashed' } }, h('b', { style: { fontWeight: 400 } }, a), h('div', { class: 'muted small' }, b))));
   // trip countdown
   const nextTrip = store.list('trip', t => t.start && t.start >= T && t.status !== 'done').sort((a, b) => a.start.localeCompare(b.start))[0];
   if (nextTrip) { const n = Math.round((new Date(nextTrip.start) - new Date(T)) / 864e5); R.append(h('a', { class: 'card', href: '#/travel/t/' + nextTrip.id, style: { '--dom': 'var(--d-travel)', textDecoration: 'none', color: 'inherit' } }, h('div', { class: 'card-head' }, h('h3', {}, nextTrip.name), h('span', { class: 'count' }, n === 0 ? 'today' : `in ${n} day${n > 1 ? 's' : ''}`)), h('div', { class: 'faint small' }, niceDate(nextTrip.start, true) + (nextTrip.checklist ? ` · ${nextTrip.checklist.filter(c => c.done).length}/${nextTrip.checklist.length} ready` : '')))); }

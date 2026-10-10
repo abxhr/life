@@ -7,7 +7,8 @@ _cache = {}
 
 
 def register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit):
-    import gmail, garmin
+    import gmail, garmin, assistant
+    assistant.register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit)
     garmin.register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit)
 
     @app.post("/api/gmail/sync")

@@ -72,3 +72,10 @@ input[type=range] { accent-color: var(--pen); min-height: 32px; }
 .rl-row { display: grid; grid-template-columns: minmax(90px, 160px) 1fr 100px; gap: 12px; align-items: center; padding: 8px 0; } .rl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rl-track { position: relative; height: 4px; background: var(--rule); border-radius: 4px; } .rl-tick { position: absolute; top: -5px; width: 1.5px; height: 14px; background: var(--ink-3); }
 .rl-dot { position: absolute; top: -7px; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; border: 2px solid var(--paper); background: var(--good); } .rl-dot.warn { background: var(--warn); } .rl-dot.bad { background: var(--bad); }
+
+/* assistant */
+.chat { display: grid; gap: 8px; } .chat-list { min-height: 260px; max-height: 58vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
+.bubble { max-width: 88%; padding: 8px 14px; border-radius: 14px 14px 14px 3px; background: var(--panel); border: 1px solid var(--rule); white-space: pre-wrap; line-height: 1.35; } .bubble.user { align-self: flex-end; background: var(--pen-soft); border-radius: 14px 14px 3px 14px; }
+.chat-in { min-height: 44px; max-height: 160px; resize: none; line-height: 1.3; padding: 8px; background-image: none; }
+.assistant-sheet .chat-list { max-height: 50vh; } pre.preview { white-space: pre-wrap; background: var(--panel-2); padding: 10px; border-radius: 6px; max-height: 45vh; overflow: auto; font: .8rem/1.3 var(--f-ui); }
+.confirm { max-width: 520px; }

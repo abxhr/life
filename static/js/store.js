@@ -72,6 +72,12 @@ export const store = {
     if (r.status === 401) { location.reload(); throw new Error('auth'); }
     const j = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(j.error || r.statusText), { status: r.status }); return j;
   },
+  async stream(path, body, onEvent) { // SSE over fetch (POST): calls onEvent for each JSON event; resolves when the stream ends
+    const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF': csrf }, body: JSON.stringify(body), credentials: 'same-origin' });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || r.statusText); }
+    const rd = r.body.getReader(), dec = new TextDecoder(); let buf = '';
+    for (;;) { const { done, value } = await rd.read(); if (done) break; buf += dec.decode(value, { stream: true }); let i; while ((i = buf.indexOf('\n\n')) >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 2); if (line.startsWith('data: ')) { try { onEvent(JSON.parse(line.slice(6))); } catch { /* partial */ } } } }
+  },
   async upload(path, fd) {
     const r = await fetch(path, { method: 'POST', body: fd, headers: { 'X-CSRF': csrf }, credentials: 'same-origin' });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j;
