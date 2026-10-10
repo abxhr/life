@@ -1,6 +1,6 @@
 # Life — your day, quietly
 
-A private, single-user life manager that looks and feels like a notebook: ruled paper, a red margin line, a spiral-bound spine, handwritten type (Kalam, self-hosted). One place for *today*, *what's on my mind*, *how I'm doing*, *where I'm going*, *what to do with this time*, and *work to-dos from a locked-down PC*.
+A private, single-user life manager that looks and feels like a notebook: ruled paper, a red margin line, a spiral-bound spine, handwritten type (Gaegu, self-hosted). One place for *today*, *what's on my mind*, *how I'm doing*, *where I'm going*, *what to do with this time*, and *work to-dos from a locked-down PC*.
 
 Flask + SQLite (WAL) + vanilla JS. Installable PWA, offline-first (IndexedDB + outbox), no framework, no analytics, no third-party requests (fonts, maps' world shapes, charts and QR code libraries are all vendored).
 
