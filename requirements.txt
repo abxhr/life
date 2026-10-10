@@ -1,0 +1,7 @@
+flask
+cryptography
+requests
+pywebpush
+pytest
+playwright
+tzdata
