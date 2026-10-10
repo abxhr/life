@@ -105,3 +105,33 @@ input[type=range] { accent-color: var(--pen); min-height: 32px; }
 .gh { cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none; } .gh .car { transition: transform .2s; } .gh[aria-expanded="false"] .car { transform: rotate(-90deg); }
 .sumbar { display: flex; gap: 18px; flex-wrap: wrap; align-items: baseline; padding: 6px 4px; border-top: 1.5px solid var(--ink); margin-top: 4px; } .sumbar b { font: 700 1.3rem var(--f-title); } .sumbar span { color: var(--ink-3); }
 .fav { margin-left: auto; }
+
+/* menus, filters, format bar */
+.actmenu { position: relative; flex: none; } .actmenu > summary { list-style: none; cursor: pointer; display: inline-flex; } .actmenu > summary::-webkit-details-marker { display: none; }
+.actmenu-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 210px; background: var(--panel); border: 1.5px solid var(--ink); border-radius: 10px; padding: 6px; box-shadow: 4px 6px 0 rgba(0,0,0,.15); display: grid; gap: 2px; }
+.actmenu-pop .btn { border-color: transparent; justify-content: flex-start; width: 100%; border-radius: 6px; } .actmenu-pop .btn:hover { background: var(--panel-2); transform: none; } .actmenu-pop .btn.danger { color: var(--bad); }
+.filters > summary { list-style: none; cursor: pointer; display: inline-flex; } .filters > summary::-webkit-details-marker { display: none; } .filters[open] { flex-basis: 100%; }
+.fmtbar { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 8px; scrollbar-width: none; } .fmtbar .btn { flex: none; }
+
+.inbox-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin: 0 0 14px; background: var(--pen-soft); border: 1.5px solid var(--pen); border-radius: 10px; color: var(--ink); text-decoration: none; }
+.more-today > summary { cursor: pointer; padding: 8px 4px; color: var(--ink-2); list-style: none; display: flex; align-items: center; gap: 4px; } .more-today > summary::-webkit-details-marker { display: none; } .more-today[open] > summary .car { transform: rotate(180deg); } .more-today > .stack { margin-top: 8px; }
+.sticky .row .btn { --b: currentColor; }
+@media (max-width: 860px) { .sticky { padding: 14px 16px; } .sticky .big { font-size: 1.5rem; } .hero-line { font-size: 1.5rem; max-width: none; margin-bottom: 12px; } .today-grid { gap: 12px; } .hero-row { gap: 12px; } }
+
+/* More: big, calm tiles */
+.tile-h { font: 600 .9rem var(--f-ui); color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; margin: 18px 0 8px; } .tile-h:first-child { margin-top: 0; }
+.tiles { display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 1fr; gap: 10px; }
+.tile { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px; min-height: 64px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; color: var(--ink); text-decoration: none; box-shadow: var(--shadow); font-size: 1.05rem; line-height: 1.15; }
+.tile .ico { width: 26px; height: 26px; color: var(--pen); } .tile:active { background: var(--panel-2); } .tile .badge { position: absolute; top: 8px; right: 10px; font: 700 .8rem var(--f-ui); background: var(--margin); color: #fff; border-radius: 99px; padding: 1px 8px; font-style: normal; }
+
+.setsec > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; min-height: 36px; } .setsec > summary::-webkit-details-marker { display: none; } .setsec > summary h3 { margin: 0; } .setsec:not([open]) > summary .car { transform: rotate(-90deg); }
+.tabbar a, .tabbar button { position: relative; } .tb-badge { position: absolute; top: 2px; right: 22%; font: 700 .72rem var(--f-ui); background: var(--margin); color: #fff; border-radius: 99px; padding: 0 6px; font-style: normal; min-width: 18px; text-align: center; }
+
+.cal-scroll { max-height: min(70dvh, 640px); overflow: auto; overscroll-behavior: contain; } @media (max-width: 860px) { .cal-scroll { max-height: calc(100dvh - 330px); min-height: 320px; } }
+
+.actmenu-pop.left { left: 0; right: auto; }
+
+.notes-grid > *, .notes-ed .card { min-width: 0; } @media (max-width: 860px) { .notes-grid { grid-template-columns: minmax(0, 1fr); } .fmtbar { max-width: 100%; } }
+
+.welcome { margin-bottom: 16px; } .welcome-step { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px dashed var(--rule); padding: 10px 2px; cursor: pointer; font: inherit; color: inherit; min-height: 56px; }
+.welcome-step > b { width: 30px; height: 30px; border-radius: 50%; background: var(--pen); color: var(--pen-ink); display: grid; place-items: center; font: 700 1rem var(--f-ui); flex: none; }

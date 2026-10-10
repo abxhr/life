@@ -262,3 +262,35 @@ kbd { font: 600 .8rem var(--f-ui); border: 1px solid var(--ink-3); border-bottom
 .quick .qh { font: 600 .85rem var(--f-ui); opacity: .6; padding: 8px 12px 2px; letter-spacing: .04em; }
 .quick .q { display: flex; align-items: center; gap: 8px; padding: 3px 12px; color: var(--cover-ink); text-decoration: none; font-size: 1.05rem; border-radius: 5px; white-space: nowrap; overflow: hidden; } .quick .q span { overflow: hidden; text-overflow: ellipsis; } .quick .q:hover { background: rgba(255,255,255,.07); }
 .quick .mini { opacity: .7; flex: none; }
+
+/* ---------- phone-first polish (review pass) ---------- */
+.ico { width: 1.25em; height: 1.25em; flex: none; vertical-align: -.22em; }           /* every icon has a sane size by default: no more giant glyphs */
+.ico.mini { width: .95em; height: .95em; } .empty .ico { width: 48px; height: 48px; }
+main:focus, main:focus-visible { outline: none; }                                      /* programmatic focus after navigation must not draw a frame */
+.page-head { flex-wrap: nowrap; align-items: center; gap: 10px; margin-bottom: 20px; }
+.page-head h1 { flex: 1 1 auto; min-width: 0; font-size: var(--fs-3); overflow-wrap: anywhere; } .page-head .sub { flex: none; font-size: var(--fs-sm); }
+.page-head .btn, .page-head .seg { flex: none; } .page-head .grow { display: none; }
+.item .chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.menu-btn { width: 40px; padding: 0; }
+.kbd-hint { color: var(--ink-3); font-size: var(--fs-sm); }
+@media (hover: none) { .kbd-hint, kbd { display: none !important; } }
+@media (max-width: 860px) {
+  :root { --lh: 30px; }
+  .page { padding: 14px 14px calc(var(--tabh) + 96px) 38px; }
+  .page-head { margin-bottom: 14px; } .page-head h1 { font-size: 1.9rem; }
+  .card { padding: 12px 14px; } .card-head { margin-bottom: 4px; }
+  .grid2 { gap: 12px; } .stack { gap: 12px; }
+  .topbar .mode-sw { min-width: 138px; } .topbar .mode-sw button { min-height: 34px; font-size: 1.02rem; padding: 2px 6px; }
+  .btn { min-height: 44px; } .btn.sm { min-height: 40px; } .chip { min-height: 36px; padding: 2px 12px; }
+  .chk { width: 30px; height: 30px; } .item { padding: 9px 0; }
+  .stat-row, .stats { gap: 16px 20px; } .stats .stat b { font-size: 2rem; }
+  .world { max-height: 46vh; }
+}
+
+@media (max-width: 860px) { .page-head { flex-wrap: wrap; } .page-head h1 { flex: 1 1 0; min-width: 7ch; } .page-head .sub { order: 9; flex-basis: 100%; margin-top: -6px; } }
+
+@media (max-width: 860px) { .dialog .actions { flex-wrap: nowrap; gap: 8px; } .dialog .actions .btn:not(.icon) { flex: 1; padding-left: 8px; padding-right: 8px; } .cap-input { font-size: 1.35rem !important; } .dialog { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); } .dialog h2 { font-size: 1.6rem; } }
+
+.page-head .actmenu { order: 3; } .page-head .fav { order: 4; margin-left: 0; }
+
+@media (max-width: 860px) { .kbd-hint, kbd { display: none !important; } .dialog .actions { align-items: center; } }

@@ -95,10 +95,11 @@ const paintMode = () => document.querySelectorAll('.mode-sw button').forEach(b =
 function onData() {
   paintQuick();
   const n = store.list('inbox').filter(inMode).length, b = $('#inbox-n'); if (b) { b.textContent = n; b.classList.toggle('hide', !n); }
+  const mt = document.querySelector('.tabbar a[data-id="more"]'); if (mt) { let bd = mt.querySelector('.tb-badge'); if (n && !bd) { bd = h('i', { class: 'tb-badge' }); mt.append(bd); } if (bd) { bd.textContent = n; bd.classList.toggle('hide', !n); } }
   const st = store.status(), p = $('#sync-pill'); if (p) p.textContent = !navigator.onLine ? 'offline · ' + st.pending + ' waiting' : st.pending ? st.pending + ' change' + (st.pending > 1 ? 's' : '') + ' waiting' : st.lastErr ? 'sync paused' : 'saved';
   const a = document.activeElement, typing = a && pageEl && pageEl.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
   if (typing && !a.classList.contains('cap-input') && !a.dataset.live) return; // never yank the keyboard (quick-add boxes are the exception: they re-render and keep focus)
-  if (document.querySelector('.scrim')) return;
+  if (document.querySelector('.scrim') || document.querySelector('.actmenu[open]')) return;   // never re-render under an open dialog or menu
   const lbl = typing && a.getAttribute('aria-label');
   render(true).then(() => { if (lbl) { const n = pageEl.querySelector(`[aria-label="${lbl}"]`); n && n.focus(); } });
 }
@@ -133,10 +134,14 @@ async function render(soft) {
   if (!soft) { mainEl.focus({ preventScroll: true }); }
 }
 function moreView() {
-  const rest = SECTIONS.filter(s => !(window.__settings?.tabs || ['today', 'tasks', 'calendar', 'notes']).slice(0, 4).includes(s[0]));
-  const extra = [['people', 'People', 'user'], ['vault', 'Documents', 'shield'], ['work', 'Work capture', 'briefcase'], ['admin', 'Life admin', 'home'], ['trash', 'Trash', 'trash']];
-  const f = favs();
-  pageEl.replaceChildren(h('div', { class: 'page-head' }, h('h1', { class: 'squig' }, 'More')), f.length ? h('div', { class: 'stack-s', style: { marginBottom: '16px' } }, h('div', { class: 'small muted' }, 'Favourites'), f.map(x => h('a', { class: 'btn', style: { justifyContent: 'flex-start' }, href: x.href }, icon('star'), x.label))) : '', h('div', { class: 'stack-s' }, [...rest, ...extra].map(([id, l, ic]) => h('a', { class: 'btn', style: { justifyContent: 'flex-start' }, href: '#/' + id }, icon(ic), l))));
+  const f = favs(), n = store.list('inbox').filter(inMode).length, tabs = (window.__settings?.tabs || ['today', 'tasks', 'calendar', 'notes']).slice(0, 3);
+  const tile = (id, label, ic, badge) => h('a', { class: 'tile', href: '#/' + id }, icon(ic), h('span', {}, label), badge ? h('i', { class: 'badge' }, badge) : '');
+  const grp = (title, items) => h('section', {}, h('h3', { class: 'tile-h' }, title), h('div', { class: 'tiles' }, items.filter(x => !tabs.includes(x[0])).map(x => tile(...x))));
+  pageEl.replaceChildren(h('div', { class: 'page-head' }, h('h1', { class: 'squig' }, 'More')),
+    f.length ? h('section', {}, h('h3', { class: 'tile-h' }, 'Favourites'), h('div', { class: 'tiles' }, f.map(x => h('a', { class: 'tile', href: x.href }, icon('star'), h('span', {}, x.label))))) : '',
+    grp('Every day', [['inbox', 'Inbox', 'inbox', n || ''], ['notes', 'Notes', 'notes'], ['lists', 'Lists', 'lists'], ['goals', 'Goals', 'goals'], ['review', 'Review', 'review']]),
+    grp('Life', [['travel', 'Travel', 'travel'], ['health', 'Health', 'health'], ['people', 'People', 'user'], ['vault', 'Documents', 'shield'], ['admin', 'Life admin', 'home']]),
+    grp('Tools', [['assistant', 'Assistant', 'assistant'], ['work', 'Work page', 'briefcase'], ['trash', 'Trash', 'trash'], ['settings', 'Settings', 'settings']]));
 }
 
 // ---------------- command palette & shortcuts ----------------

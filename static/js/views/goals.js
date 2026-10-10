@@ -2,7 +2,7 @@
 import { h, today, addDays, niceDate, ago, uid, dow } from '../util.js';
 import { icon } from '../icons.js';
 import { store } from '../store.js';
-import { modal, toast, empty, field, seg, confirmBox, promptBox } from '../ui.js';
+import { modal, toast, empty, field, seg, confirmBox, promptBox, actMenu } from '../ui.js';
 import { progress, AREAS, LIVE, addWin, achieve, activeBig } from '../goals-core.js';
 import { streak, toggleHabit, doneOn, logsFor, weekCount } from '../habits-core.js';
 import { openCapture } from '../capture.js';
@@ -48,7 +48,7 @@ function goalsTab(box) {
   box.append(h('div', { class: 'row' }, h('span', { class: 'muted grow' }, `${activeBig().length} of 3 big goals`), h('button', { class: 'btn primary', onclick: () => editGoal() }, icon('plus'), 'New goal')));
   if (!all.length) { box.append(empty('goals', 'What’s worth wanting?', 'Add one goal and the reason behind it. Everything else can wait.', h('button', { class: 'btn primary', onclick: () => editGoal() }, 'Add a goal'))); return; }
   const card = g => { const p = progress(g, wealth), tasks = store.list('task', t => t.goal_id === g.id && !t.done).length, hb = store.list('habit', x => x.goal_id === g.id);
-    return h('article', { class: 'card goal' + (g.status === 'paused' ? ' paused' : ''), style: { '--dom': 'var(--d-goals)' } }, coverStrip(g), h('div', { class: 'card-head' }, g.quarterly ? h('span', { class: 'chip dom' }, 'big goal') : '', h('h3', { style: { flex: 1 } }, iconSpan(g), g.title), h('button', { class: 'btn icon sm ghost', 'aria-label': 'Icon and cover', onclick: () => decorDialog(g, () => {}) }, icon('star')), h('button', { class: 'btn icon sm ghost', 'aria-label': 'Edit goal', onclick: () => editGoal(g.id) }, icon('edit'))),
+    return h('article', { class: 'card goal' + (g.status === 'paused' ? ' paused' : ''), style: { '--dom': 'var(--d-goals)' } }, coverStrip(g), h('div', { class: 'card-head' }, g.quarterly ? h('span', { class: 'chip dom' }, 'big goal') : '', h('h3', { style: { flex: 1 } }, iconSpan(g), g.title), actMenu(h('button', { class: 'btn sm', onclick: () => editGoal(g.id) }, icon('edit'), 'Edit goal'), h('button', { class: 'btn sm', onclick: () => decorDialog(g, () => {}) }, icon('image'), 'Icon & cover'))),
       h('p', { class: 'muted', style: { margin: '0 0 8px', fontStyle: 'italic' } }, '“' + g.why + '”'), bar(p.pct, g.title + ' progress'),
       h('div', { class: 'row wrap small muted', style: { marginTop: '6px' } }, h('span', {}, p.label), g.deadline ? h('span', {}, '· by ' + niceDate(g.deadline, true)) : '', p.pace ? h('span', { class: 'chip ' + (p.pace === 'behind' ? 'warn' : 'good') }, p.pace === 'ahead' ? 'ahead of pace' : p.pace === 'on' ? 'on pace' : 'behind pace') : '', p.projected ? h('span', {}, '· on track for ' + niceDate(p.projected, true)) : '', tasks ? h('span', {}, `· ${tasks} task${tasks > 1 ? 's' : ''}`) : '', hb.length ? h('span', {}, '· ' + hb.map(x => x.name).join(', ')) : ''),
       (g.milestones || []).length ? h('div', { class: 'stack-s', style: { marginTop: '8px' } }, g.milestones.map(m => h('label', { class: 'row' }, h('input', { type: 'checkbox', class: 'chk', checked: m.done, onchange: e => { const ms = g.milestones.map(x => x.id === m.id ? { ...x, done: e.target.checked } : x); store.put('goal', { milestones: ms }, g.id); if (e.target.checked) { addWin(`${m.title} — ${g.title}`, 'milestone', { goal: g.id }); toast('Milestone ✓ — added to your wins'); } } }), h('span', { class: m.done ? 'faint' : '' }, m.title)))) : '',

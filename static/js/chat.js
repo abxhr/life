@@ -15,7 +15,7 @@ export function renderText(t) {
 
 export function chatPanel({ getContext, compact } = {}) {
   let api = [], view = [], busy = false, convId = null, doneResults = [], pending = null;
-  const list = h('div', { class: 'chat-list', 'aria-live': 'polite' }), input = h('textarea', { class: 'in chat-in', rows: 1, placeholder: 'Ask anything about your life, or tell me to do something…', 'aria-label': 'Message the assistant' });
+  const list = h('div', { class: 'chat-list', 'aria-live': 'polite' }), input = h('textarea', { class: 'in chat-in', rows: 1, placeholder: 'Ask, or tell me to do something…', 'aria-label': 'Message the assistant' });
   const send = h('button', { class: 'btn primary', 'aria-label': 'Send', onclick: () => go() }, icon('send'));
   const status = h('div', { class: 'faint small', style: { minHeight: '1.4em' } });
   const root = h('div', { class: 'chat' + (compact ? ' compact' : '') }, list, status, h('div', { class: 'row', style: { alignItems: 'flex-end' } }, input, send));

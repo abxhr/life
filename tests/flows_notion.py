@@ -12,13 +12,13 @@ def run(pg, mobile, go, SHOTS, OUT):
     go("notes/new"); pg.wait_for_selector("input.note-title"); pg.click(".seg button:has-text('Write')"); pg.wait_for_selector("textarea.note-body"); pg.fill("input.note-title", "Rich page")
     pg.fill("textarea.note-body", "::: toggle More\nhidden bit\n:::\n\n> [!tip] Heads up\n> bring a charger\n\n---"); pg.wait_for_timeout(800)
     pg.click(".seg button:has-text('Read')"); pg.wait_for_selector(".note-prev details.toggle summary"); pg.wait_for_selector(".note-prev .callout.tip"); pg.click(".seg button:has-text('Write')")
-    pg.click("button[aria-label='Icon and cover']"); pg.click(".emoji >> nth=2"); pg.click(".swatch >> nth=1"); pg.click(".dialog .btn.primary:has-text('Save')")
+    pg.click("button[aria-label='More actions']"); pg.click(".dialog button:has-text('Icon & cover')"); pg.click(".emoji >> nth=2"); pg.click(".swatch >> nth=1"); pg.click(".dialog .btn.primary:has-text('Save')")
     pg.wait_for_selector(".notes-ed .cover"); pg.wait_for_selector(".notes-ed .pg-icon")
     if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-richnote.png")
-    pg.click("button[aria-label='Duplicate note']"); pg.wait_for_timeout(700); assert pg.input_value("input.note-title") == "Rich page (copy)"
+    pg.click("button[aria-label='More actions']"); pg.click(".dialog button:has-text('Duplicate')"); pg.wait_for_timeout(700); assert pg.input_value("input.note-title") == "Rich page (copy)"
     pg.click(".links-panel button:has-text('link')"); pg.fill(".dialog input[aria-label='Search to link']", "buy flowers"); pg.click(".dialog .res button >> nth=0")
     pg.wait_for_selector(".links-panel .chip:has-text('buy flowers')")
-    pg.click("button[aria-label='Delete']"); pg.click(".dialog .btn.danger"); pg.wait_for_timeout(500)
+    pg.click("button[aria-label='More actions']"); pg.click(".dialog button:has-text('Delete')"); pg.click(".dialog .btn.danger"); pg.wait_for_timeout(500)
     go("trash"); pg.wait_for_selector(".item:has-text('Rich page (copy)')"); pg.click(".item:has-text('Rich page (copy)') button:has-text('Restore')"); pg.wait_for_timeout(400)
     assert pg.locator(".item:has-text('Rich page (copy)')").count() == 0, "restored items leave the trash"
     # --- duplicate a task ---
@@ -31,19 +31,23 @@ def run(pg, mobile, go, SHOTS, OUT):
         pg.wait_for_selector(".dialog input[type=number] >> nth=0"); pg.fill(".dialog input[type=number] >> nth=0", str(pr)); pg.fill(".dialog input[type=number] >> nth=1", str(q))
         pg.select_option(".dialog select", k); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector(f".item:has-text('{nm}') .meta:has-text('{k}')")
     pg.wait_for_selector(".sumbar:has-text('140')")                                            # 20*2 + 100*1, via the formula column
+    if pg.locator(".filters[open]").count() == 0:
+        pg.click(".filters summary")
     pg.select_option("select[aria-label='Group by']", index=2); pg.wait_for_selector(".gh h3:has-text('tech')")
     pg.click(".gh:has-text('tech')"); pg.wait_for_timeout(300); assert pg.locator(".item .t:has-text('Charger')").count() == 0, "folded group hides its rows"
+    pg.click(".page-head .actmenu summary")
     with pg.expect_download() as dl:
-        pg.click("button:has-text('CSV')")
+        pg.click(".actmenu-pop button:has-text('Export as CSV')")
     csvp = os.path.join(tempfile.gettempdir(), "gear-export.csv"); dl.value.save_as(csvp); txt = open(csvp, encoding="utf-8-sig").read()
     assert "Charger" in txt and "Total" in txt and "40" in txt, txt
     open(csvp, "w", encoding="utf-8").write("Name,Price,Qty,Kind\nTent,200,1,tech\nSocks,5,4,clothes\n")
+    pg.click(".page-head .actmenu summary")
     with pg.expect_file_chooser() as fc:
-        pg.click("button[title='Import rows from a CSV file']")
+        pg.click(".actmenu-pop button:has-text('Import from CSV')")
     fc.value.set_files(csvp); pg.click(".dialog .btn.primary:has-text('Import')"); pg.wait_for_timeout(500)
     pg.click(".gh:has-text('tech')"); pg.wait_for_selector(".item .t:has-text('Tent')")
     # --- buttons + automations ---
-    go("settings"); pg.select_option("select[aria-label='Add from template']", index=3); pg.wait_for_selector(".toast:has-text('Added')")      # "follow up in 3 days after a task in a project is done"
+    go("settings"); pg.click("summary:has-text('Buttons & automations')"); pg.select_option("select[aria-label='Add from template']", index=3); pg.wait_for_selector(".toast:has-text('Added')")      # "follow up in 3 days after a task in a project is done"
     pg.click("button:has-text('New button')"); pg.fill(".dialog input[placeholder='Call mum']", "Call mum"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_timeout(300)
     go("today"); pg.wait_for_selector("button:has-text('Call mum')"); pg.click("button:has-text('Call mum')"); pg.wait_for_selector(".toast:has-text('Added')")
     go("tasks"); pg.fill("input[aria-label='Add a task']", "send passport copy +Japan-trip"); pg.keyboard.press("Enter"); pg.wait_for_timeout(300)

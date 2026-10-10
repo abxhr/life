@@ -88,7 +88,7 @@ def run(pg, mobile):
     pg.click(".seg button:has-text('Emergency card')"); pg.fill("input[placeholder^='Choose a PIN']", "2468"); pg.click("button:has-text('Set up card')"); pg.fill("input[placeholder='Blood group'], .card input >> nth=1", "O+"); 
     pg.click("button:has-text('Save & lock')"); pg.wait_for_selector("input[aria-label=PIN]"); pg.fill("input[aria-label=PIN]", "0000"); pg.keyboard.press("Enter"); pg.wait_for_selector("text=not the PIN")
     pg.fill("input[aria-label=PIN]", "2468"); pg.keyboard.press("Enter"); pg.wait_for_selector(".emerg:has-text('In an emergency')")
-    go("lists"); pg.click("a.card >> nth=0"); pg.click("button:has-text('Link')"); pg.click(".dialog button:has-text('Create link')"); pg.wait_for_selector("input[aria-label='Share link']"); pg.keyboard.press("Escape")
+    go("lists"); pg.click("a.card >> nth=0"); pg.click(".actmenu >> nth=1 >> summary"); pg.click(".actmenu-pop button:has-text('Share as a link')"); pg.click(".dialog button:has-text('Create link')"); pg.wait_for_selector("input[aria-label='Share link']"); pg.keyboard.press("Escape")
     go("today"); pg.keyboard.press("Control+k"); pg.fill(".dialog input", "Focus mode"); pg.wait_for_timeout(400); pg.keyboard.press("Enter"); pg.wait_for_selector(".focus .focus-clock"); pg.click(".focus button:has-text('Start')"); pg.wait_for_timeout(1200); pg.click(".focus .focus-x")
     import flows_notion; flows_notion.run(pg, mobile, go, SHOTS, OUT)
     # work mode toggle
@@ -111,7 +111,7 @@ def main():
                 pg.goto(BASE); pg.wait_for_selector("input[type=password]"); pg.fill("input[type=password]", "correct horse battery"); pg.keyboard.press("Enter"); pg.wait_for_selector(".shell")
                 try: run(pg, mobile)
                 except Exception as e:
-                    pg.screenshot(path=os.path.join(ROOT, "tests", "fail.png")); errs.append(f"flow ({'mobile' if mobile else 'desktop'}): {str(e)[:400]}"); 
+                    pg.screenshot(path=os.path.join(ROOT, "tests", "fail.png")); over = pg.evaluate("[...document.querySelectorAll('.page *')].filter(e=>{const r=e.getBoundingClientRect(); if(r.right<=394||r.width===0) return false; for(let p=e;p&&p.classList;p=p.parentElement){const o=getComputedStyle(p).overflowX; if(o==='auto'||o==='scroll'||o==='hidden') return false;} return true;}).slice(0,4).map(e=>e.tagName+'.'+String(e.className).slice(0,30)+' '+Math.round(e.getBoundingClientRect().right))"); errs.append(f"[overflowing: {over}] "+f"flow ({'mobile' if mobile else 'desktop'}): {str(e)[:400]}"); 
                 ctx.close()
                 b.close()
         finally: srv.terminate(); srv.wait(); shutil.rmtree(tmp, ignore_errors=True)

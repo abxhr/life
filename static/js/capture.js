@@ -11,7 +11,7 @@ const URLRE = /^https?:\/\/\S+$/i;
 
 export function openCapture(prefill = '') {
   modal((d, close) => {
-    const inp = h('input', { class: 'in cap-input', placeholder: 'What’s on your mind?  “call mum tomorrow 3pm #family !high”', 'aria-label': 'Capture', value: prefill, autocomplete: 'off', enterkeyhint: 'done', autofocus: true });
+    const inp = h('input', { class: 'in cap-input', placeholder: 'What’s on your mind?', 'aria-label': 'Capture', value: prefill, autocomplete: 'off', enterkeyhint: 'done', autofocus: true });
     const chips = h('div', { class: 'parsed', 'aria-live': 'polite' });
     let p = parse(prefill), dropped = new Set();
     const paint = () => {
@@ -40,8 +40,8 @@ export function openCapture(prefill = '') {
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(e.ctrlKey || e.metaKey); } });
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const mic = SR ? h('button', { class: 'btn icon', type: 'button', 'aria-label': 'Dictate', onclick: () => { const r = new SR(); r.lang = 'en-GB'; r.onresult = e => { inp.value = (inp.value + ' ' + e.results[0][0].transcript).trim(); paint(); }; r.onerror = () => toast('Couldn’t hear that'); r.start(); mic.classList.add('primary'); r.onend = () => mic.classList.remove('primary'); } }, icon('mic')) : '';
-    d.append(h('h2', {}, 'Capture'), inp, chips,
-      h('div', { class: 'actions' }, mic, h('span', { class: 'faint small grow' }, h('kbd', {}, 'Enter'), ' inbox · ', h('kbd', {}, 'Ctrl+Enter'), ' task'),
+    d.append(h('h2', {}, 'Capture'), inp, h('p', { class: 'faint small', style: { margin: '4px 0 0' } }, 'Dates, #tags, @places and !priority are picked up as you type.'), chips,
+      h('div', { class: 'actions' }, mic, h('span', { class: 'faint small grow kbd-hint' }, h('kbd', {}, 'Enter'), ' inbox · ', h('kbd', {}, 'Ctrl+Enter'), ' task'),
         h('button', { class: 'btn', onclick: () => save(true) }, icon('tasks'), 'Make task'), h('button', { class: 'btn primary', onclick: () => save(false) }, icon('inbox'), 'To inbox')));
     paint();
   }, { label: 'Capture' });

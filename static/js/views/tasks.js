@@ -95,9 +95,10 @@ function group(title, items, el, opt = {}) {
 }
 
 export function overdueTriage(list, refresh) {
-  return h('div', { class: 'stack-s' }, list.map(t => h('div', { class: 'item' }, h('div', { class: 'grow' }, h('span', { class: 't' }, t.title), h('div', { class: 'meta' }, 'was ' + niceDate(t.due))),
-    h('button', { class: 'chip', onclick: () => saveTask({ due: today() }, t.id) }, 'today'), h('button', { class: 'chip', onclick: () => saveTask({ due: addDays(today(), 1) }, t.id) }, 'tomorrow'),
-    h('button', { class: 'chip', onclick: () => saveTask({ due: null, someday: true }, t.id) }, 'someday'), h('button', { class: 'chip', onclick: () => { store.del(t.id); toast('Dropped', () => store.restore(t.id)); } }, 'drop'))));
+  const mv = (t, patch, msg) => { saveTask(patch, t.id); toast(msg, () => saveTask({ due: t.due, someday: !!t.someday }, t.id)); };
+  return h('div', { class: 'stack-s' }, list.map(t => h('div', { class: 'item' }, h('div', { class: 'grow' }, h('span', { class: 't' }, t.title), h('div', { class: 'meta' }, 'was ' + niceDate(t.due)),
+    h('div', { class: 'chip-row' }, h('button', { class: 'chip', onclick: () => mv(t, { due: today() }, 'Moved to today') }, 'Today'), h('button', { class: 'chip', onclick: () => mv(t, { due: addDays(today(), 1) }, 'Moved to tomorrow') }, 'Tomorrow'),
+      h('button', { class: 'chip', onclick: () => mv(t, { due: null, someday: true }, 'Parked for someday') }, 'Someday'), h('button', { class: 'chip', onclick: () => { store.del(t.id); toast('Dropped', () => store.restore(t.id)); } }, 'Drop'))))));
 }
 
 const syncHash = () => history.replaceState(null, '', '#/tasks?tab=' + tab + (proj ? '&proj=' + encodeURIComponent(proj) : ''));   // so the ☆ pins THIS view (saved views)
@@ -106,7 +107,7 @@ export default function render(el, ctx) {
   if (!ctx.soft && ctx.q.tab && TABS.some(x => x[0] === ctx.q.tab)) { tab = ctx.q.tab; proj = ctx.q.proj || null; }
   const all = () => store.list('task').filter(inMode);
   const T = today();
-  const add = h('input', { class: 'in cap-input', placeholder: 'Add a task…  “send deck to finance fri 2pm @work !high”', 'aria-label': 'Add a task', onkeydown: e => {
+  const add = h('input', { class: 'in cap-input', placeholder: 'Add a task… e.g. “pay rent friday”', 'aria-label': 'Add a task', onkeydown: e => {
     if (e.key === 'Enter' && e.target.value.trim()) { const p = parse(e.target.value); if (state.mode === 'work' && !p.ctx) p.ctx = 'work'; if (tab === 'today' && !p.due) p.due = T; saveTask(fromParsed(p)); e.target.value = ''; } } });
   const tabs = seg(TABS, tab, v => { tab = v; syncHash(); ctx.refresh(); });
   el.append(h('div', { class: 'page-head' }, h('h1', { class: 'squig' }, 'Tasks'), h('span', { class: 'sub' }, state.mode === 'work' ? 'work only' : state.mode === 'personal' ? 'personal only' : '')), add, h('div', { style: { margin: '12px 0 20px', overflowX: 'auto' } }, tabs));

@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = 5056; BASE = f"http://127.0.0.1:{PORT}"
-ROUTES = ["today", "inbox", "tasks", "calendar", "notes", "lists", "goals", "travel", "health", "assistant", "review", "settings", "work", "do", "people", "vault", "admin", "more"]
+ROUTES = ["today", "inbox", "tasks", "calendar", "notes", "lists", "goals", "travel", "health", "assistant", "review", "settings", "work", "do", "people", "vault", "admin", "trash", "notes/today", "more"]
 SHOTS = "--shots" in sys.argv
 OUT = os.path.join(ROOT, "tests", "shots")
 

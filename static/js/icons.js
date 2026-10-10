@@ -25,13 +25,13 @@ const P = {
   heart: 'M12 20s-8-5-8-11a4.5 4.5 0 018-2.5A4.5 4.5 0 0120 9c0 6-8 11-8 11z', send: 'M3 11l18-8-8 18-2-8z', undo: 'M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3',
   dish: 'M4 14a8 8 0 0116 0zM2 18h20M12 6V4', ball: 'M12 21a9 9 0 100-18 9 9 0 000 18zM12 3c3 3 3 15 0 18M3 12c3 3 15 3 18 0', book: 'M5 4h12a2 2 0 012 2v14H7a2 2 0 01-2-2zM5 18a2 2 0 012-2h12', user: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0',
   globe: 'M12 21a9 9 0 100-18 9 9 0 000 18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18', qr: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z', zap: 'M13 3L5 14h6l-1 7 8-11h-6z',
-  menu: 'M4 7h16M4 12h16M4 17h16', copy: 'M8 8h12v12H8zM4 16V4h12', shield: 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z', smile: 'M12 21a9 9 0 100-18 9 9 0 000 18zM8 14a5 5 0 008 0M9 9.5h.01M15 9.5h.01',
+  menu: 'M4 7h16M4 12h16M4 17h16', image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M9 9.5h.01', dots: 'M12 5h.01M12 12h.01M12 19h.01', copy: 'M8 8h12v12H8zM4 16V4h12', shield: 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z', smile: 'M12 21a9 9 0 100-18 9 9 0 000 18zM8 14a5 5 0 008 0M9 9.5h.01M15 9.5h.01',
 };
 export function icon(name, cls = '') {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor');
   s.setAttribute('stroke-width', '1.7'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round');
-  s.setAttribute('aria-hidden', 'true'); if (cls) s.setAttribute('class', cls);
+  s.setAttribute('aria-hidden', 'true'); s.setAttribute('class', 'ico' + (cls ? ' ' + cls : ''));
   const p = document.createElementNS('http://www.w3.org/2000/svg', 'path'); p.setAttribute('d', P[name] || P.more); s.append(p); return s;
 }
 export const iconNames = Object.keys(P);

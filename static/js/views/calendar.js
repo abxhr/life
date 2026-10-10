@@ -68,8 +68,8 @@ export default async function render(el, ctx) {
     const head = h('div', { class: 'cal-head', style: { gridTemplateColumns: `52px repeat(${days.length}, 1fr)` } }, h('span'), days.map(ds => { const ad = dayItems(ds, feeds).filter(i => i.allday); return h('div', { class: 'cal-dh' + (ds === today() ? ' is-today' : '') }, h('b', {}, wdName(dow(ds)).slice(0, 3) + ' ' + ds.slice(8)), ad.map(i => h('button', { class: 'chip', style: { '--c': colorOf(i), borderColor: colorOf(i) }, onclick: () => open(i) }, i.title))); }));
     const gutter = h('div', { class: 'cal-gutter', style: { height: (H1 - H0) * PX + 'px' } }, Array.from({ length: H1 - H0 }, (_, i) => h('span', { style: { top: i * PX + 'px' } }, fmtTime(String(H0 + i).padStart(2, '0') + ':00'))));
     const grid = h('div', { class: 'cal-grid', style: { gridTemplateColumns: `52px repeat(${days.length}, 1fr)` } }, gutter, days.map(ds => dayColumn(ds, feeds)));
-    el.append(h('div', { class: 'card cal' }, head, grid));
-    requestAnimationFrame(() => { const t = (Math.max(7, +timeIn().slice(0, 2) - 1) - H0) * PX; grid.parentElement.scrollTop = 0; window.scrollTo({ top: Math.min(t, 300) }); });
+    const scroller = h('div', { class: 'cal-scroll', tabindex: '0', role: 'region', 'aria-label': 'Schedule (scrollable)' }, head, grid); el.append(h('div', { class: 'card cal' }, scroller));
+    requestAnimationFrame(() => { scroller.scrollTop = Math.max(0, (Math.max(7, +timeIn().slice(0, 2) - 1) - H0) * PX - 4); });   // open at "now", with the controls still in view
   } else if (view === 'month') {
     const first = anchor.slice(0, 8) + '01', start = weekStart(first), m = anchor.slice(5, 7);
     const grid = h('div', { class: 'month' }, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => h('div', { class: 'mh' }, d)));

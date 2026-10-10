@@ -50,3 +50,6 @@ export function seg(options, value, onchange) {
   options.forEach(([val, label]) => wrap.append(h('button', { type: 'button', onclick: () => { paint(val); onchange(val); } }, label)));
   paint(value); return wrap;
 }
+
+// a "⋯" button that opens its children as a tidy vertical menu (phone-friendly: no row of tiny icon buttons)
+export function actMenu(...btns) { const d = h('details', { class: 'actmenu', ontoggle: () => { if (d.open) { const pop = d.querySelector('.actmenu-pop'), r = d.getBoundingClientRect(); pop.classList.toggle('left', r.right < 230 || r.left < innerWidth - r.right - 40 && r.left < 120); } } }, h('summary', { class: 'btn icon sm', 'aria-label': 'More actions' }, icon('dots')), h('div', { class: 'actmenu-pop' }, btns)); d.addEventListener('click', e => { if (e.target.closest('.actmenu-pop button')) d.open = false; }); document.addEventListener('click', e => { if (d.open && !d.contains(e.target)) d.open = false; }); return d; }

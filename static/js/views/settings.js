@@ -23,7 +23,8 @@ export default async function render(el) {
   let s; try { s = await store.api('/api/settings'); } catch { el.append(h('p', {}, 'Settings need a connection.')); return; }
   const save = async patch => { Object.assign(s, patch); try { await store.api('/api/settings', { method: 'POST', body: JSON.stringify(patch) }); window.__settings = s; Object.assign(cfg, { tz: s.timezone, name: s.name, currency: s.currency, workDays: s.work_days, workStart: s.work_start, workEnd: s.work_end, eveningFrom: s.evening_from }); toast('Saved'); } catch (e) { toast('Couldn’t save: ' + e.message); } };
   const txt = (key, label, type = 'text') => field(label, h('input', { class: 'in', type, value: s[key] ?? '', onchange: e => save({ [key]: type === 'number' ? +e.target.value : e.target.value }) }));
-  const sec = (title, ...kids) => h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, title)), h('div', { class: 'stack' }, kids));
+  const OPEN = new Set(['You', 'Data health']);   // everything else starts folded: Settings should be quick to scan on a phone
+  const sec = (title, ...kids) => h('details', { class: 'card setsec', open: OPEN.has(title) || null }, h('summary', {}, icon('chevD', 'mini car'), h('h3', {}, title)), h('div', { class: 'stack', style: { marginTop: '10px' } }, kids));
   el.append(h('div', { class: 'page-head' }, h('h1', { class: 'squig' }, 'Settings')));
   const wrap = h('div', { class: 'stack' }); el.append(wrap);
 
@@ -67,7 +68,10 @@ export default async function render(el) {
   try {
     const hh = await store.api('/api/health'); const st = store.status();
     hb.append(h('div', { class: 'item' }, h('span', { class: 'dot', style: { background: st.lastErr ? 'var(--warn)' : 'var(--good)' } }), h('div', { class: 'grow' }, 'Sync with server', h('div', { class: 'meta' }, st.lastErr ? `paused (${st.lastErr}) — ${st.pending} waiting` : `${st.pending} waiting · last ${ago(st.lastSync)}`)), h('button', { class: 'btn sm', onclick: () => store.sync() }, 'Retry')));
-    hh.states.forEach(x => hb.append(h('div', { class: 'item' }, h('span', { class: 'dot', style: { background: x.last_error ? 'var(--bad)' : x.last_ok ? 'var(--good)' : 'var(--ink-3)' } }), h('div', { class: 'grow' }, x.name.replace('_', ' '), h('div', { class: 'meta' }, x.last_error ? `failed: ${x.last_error}` : x.last_ok ? `ok ${ago(x.last_ok)} ${x.info ? '· ' + x.info : ''}` : x.info || 'not set up yet')))));
+    const row = x => h('div', { class: 'item' }, h('span', { class: 'dot', style: { background: x.last_error ? 'var(--bad)' : x.last_ok ? 'var(--good)' : 'var(--ink-3)' } }), h('div', { class: 'grow' }, x.name.replace('_', ' '), h('div', { class: 'meta' }, x.last_error ? `failed: ${x.last_error}` : x.last_ok ? `ok ${ago(x.last_ok)} ${x.info ? '· ' + x.info : ''}` : x.info || 'not set up yet')));
+    const live = hh.states.filter(x => x.last_ok || x.last_error), idle = hh.states.filter(x => !x.last_ok && !x.last_error);
+    live.forEach(x => hb.append(row(x)));
+    if (idle.length) hb.append(h('details', {}, h('summary', { class: 'muted small', style: { cursor: 'pointer' } }, `${idle.length} integrations not set up (optional)`), idle.map(row)));
     hb.append(h('p', { class: 'faint small' }, `${Object.values(hh.counts).reduce((a, b) => a + b, 0)} records · database ${hh.db_kb} KB · work capture tier: ${hh.tier}`));
   } catch (e) { hb.append(h('p', { class: 'faint' }, 'Health needs a connection.')); }
   const logBox = h('div', { class: 'hide stack-s' });

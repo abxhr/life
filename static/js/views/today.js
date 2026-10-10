@@ -2,7 +2,7 @@
 import { h, today, addDays, niceDate, fmtTime, cfg, timeIn, wdName, dow, isWorkDay, ago, uid, diffDays } from '../util.js';
 import { icon } from '../icons.js';
 import { store } from '../store.js';
-import { toast, empty } from '../ui.js';
+import { toast, empty, actMenu } from '../ui.js';
 import { inMode, state } from '../state.js';
 import { dayItems, loadFeeds, nowBlock } from '../calcore.js';
 import { completeTask, sortTasks, saveTask } from '../tasks-core.js';
@@ -45,7 +45,7 @@ export default async function render(el, ctx) {
   const sleepH = gd && gd.day >= addDays(T, -1) ? gd.sleep_h : null;
   const one = oneThing(open, T);
 
-  el.append(h('div', { class: 'page-head' }, h('h1', {}, `${greet()}, ${cfg.name}`), h('span', { class: 'sub' }, niceDate(T, true) + (state.mode !== 'all' ? ' · ' + state.mode + ' mode' : ''))));
+  el.append(h('div', { class: 'page-head' }, h('h1', {}, `Hi, ${cfg.name}`), h('span', { class: 'sub' }, new Date(T + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) + (state.mode !== 'all' ? ' · ' + state.mode + ' mode' : ''))));
   const cached = store.list('briefing', b => b.day === T)[0];
   const briefEl = h('p', { class: 'hero-line rise', style: { maxWidth: '30ch' } }, cached ? cached.text : briefing(T, items, open, over.length, sleepH));
   el.append(briefEl);
@@ -58,6 +58,17 @@ export default async function render(el, ctx) {
   const lowDays = store.list('mood_log').filter(m => m.day >= addDays(T, -2) && m.mood <= 2).length >= 3;
   store.list('future_note', n => !n.delivered && ((n.deliver_on && n.deliver_on <= T) || (n.when_low && lowDays))).slice(0, 1).forEach(n => el.append(h('div', { class: 'sticky rise', style: { marginBottom: '16px' } }, h('div', { class: 'small' }, 'A note from past you'), h('div', { class: 'big' }, n.text), h('button', { class: 'btn sm', style: { '--b': 'currentColor', marginTop: '8px' }, onclick: () => store.put('future_note', { delivered: true }, n.id) }, 'Thanks, me'))));
   const qb = await import('../automations.js').then(m => m.buttonsRow()); if (qb) el.append(qb);
+  let welcomed = true; try { welcomed = localStorage.getItem('welcomed') === '1'; } catch { /* private mode */ }
+  if (!welcomed && !store.list('task').length && !store.list('note', n => !n.daily).length && !store.list('event').length) {
+    const step = (n, title, sub, go) => h('button', { class: 'welcome-step', onclick: go }, h('b', {}, n), h('span', { class: 'grow' }, title, h('div', { class: 'faint small' }, sub)), icon('chevR'));
+    el.append(h('section', { class: 'card taped welcome' }, h('h2', {}, 'Welcome. Three small things to start:'),
+      step('1', 'Capture something', 'Tap the red + any time: a task, an idea, a link.', () => openCapture()),
+      step('2', 'Bring in your calendar', 'Paste a calendar link in Settings: no sign-in needed.', () => { location.hash = '#/settings'; }),
+      step('3', 'Get reminders on your phone', 'Telegram or push, set up in Settings.', () => { location.hash = '#/settings'; }),
+      h('button', { class: 'btn sm ghost', style: { marginTop: '6px' }, onclick: () => { try { localStorage.setItem('welcomed', '1'); } catch { /* */ } ctx.refresh(); } }, 'Got it, hide this')));
+  }
+  const inboxN = store.list('inbox').filter(inMode).length;
+  if (inboxN) el.append(h('a', { class: 'inbox-row', href: '#/inbox' }, icon('inbox'), h('span', { class: 'grow' }, inboxN === 1 ? '1 thing to sort' : inboxN + ' things to sort'), h('b', {}, 'Sort →')));
   const grid = h('div', { class: 'today-grid' }), L = h('div', { class: 'stack' }), R = h('div', { class: 'stack' }); grid.append(L, R); el.append(grid);
 
   if (evening) { shutdown(L, T, open, ctx); } else {
@@ -65,10 +76,11 @@ export default async function render(el, ctx) {
     const nb = nowBlock(T);
     const hero = h('div', { class: 'hero-row' });
     hero.append(one ? h('div', { class: 'sticky rise' }, h('div', { class: 'small' }, 'The one thing'), h('div', { class: 'big', style: { margin: '4px 0 12px' } }, one.title),
-      h('div', { class: 'row wrap' }, h('button', { class: 'btn sm', style: { '--b': 'currentColor' }, onclick: () => { completeTask(one); toast('Nice. Done.'); } }, icon('check'), 'Done'), h('button', { class: 'btn sm', style: { '--b': 'currentColor' }, onclick: () => editTask(one.id) }, 'Open'), h('button', { class: 'btn sm', style: { '--b': 'currentColor' }, onclick: () => import('../focus.js').then(m => m.openFocus(one.id)) }, icon('zap'), 'Focus'),
-        h('button', { class: 'btn sm ghost', onclick: () => { const alt = open.filter(t => t.id !== one.id && !t.someday).sort((a, b) => (a.priority || 3) - (b.priority || 3) || sortTasks(a, b))[0]; if (alt) store.put('task', { one_day: T }, alt.id); } }, 'Pick another')))
+      h('div', { class: 'row' }, h('button', { class: 'btn sm', style: { '--b': 'currentColor' }, onclick: () => { completeTask(one); toast('Nice. Done.'); } }, icon('check'), 'Done'), h('span', { class: 'grow' }), actMenu(
+        h('button', { class: 'btn sm', onclick: () => editTask(one.id) }, icon('edit'), 'Open'), h('button', { class: 'btn sm', onclick: () => import('../focus.js').then(m => m.openFocus(one.id)) }, icon('zap'), 'Focus timer'),
+        h('button', { class: 'btn sm', onclick: () => { const alt = open.filter(t => t.id !== one.id && !t.someday).sort((a, b) => (a.priority || 3) - (b.priority || 3) || sortTasks(a, b))[0]; if (alt) store.put('task', { one_day: T }, alt.id); } }, icon('refresh'), 'Pick another'))))
       : h('div', { class: 'sticky' }, h('div', { class: 'big' }, 'Nothing pressing.'), h('p', { style: { margin: '6px 0 0' } }, 'Capture something, or ask “What should I do?” →')));
-    hero.append(h('div', { class: 'card nownext' }, h('div', { class: 'small muted' }, 'Now'), nb.now ? h('div', { class: 'big-line' }, nb.now.title, h('span', { class: 'faint small' }, ` until ${fmtTime(nb.now.end)}`)) : h('div', { class: 'faint' }, 'Free'),
+    if (nb.now || nb.next) hero.append(h('div', { class: 'card nownext' }, h('div', { class: 'small muted' }, 'Now'), nb.now ? h('div', { class: 'big-line' }, nb.now.title, h('span', { class: 'faint small' }, ` until ${fmtTime(nb.now.end)}`)) : h('div', { class: 'faint' }, 'Free'),
       h('div', { class: 'small muted', style: { marginTop: '8px' } }, 'Next'), nb.next ? h('div', { class: 'big-line' }, nb.next.title, h('span', { class: 'faint small' }, ` ${fmtTime(nb.next.start)}`)) : h('div', { class: 'faint' }, 'Nothing else today')));
     L.append(hero);
 
@@ -134,6 +146,11 @@ export default async function render(el, ctx) {
   else if (wins.length) { const w = wins[0]; line = `${ago(w.created_at)}: ${w.title}`; by = 'a win'; }
   else { const q = pickQuote(seed); line = q[1]; by = q[2]; }
   R.append(h('p', { class: 'faint', style: { margin: '4px 0 0', fontFamily: 'var(--f-title)', fontSize: '1.4rem', lineHeight: 1.15 } }, '“' + line + '”', h('span', { class: 'small', style: { fontFamily: 'var(--f-hand)' } }, by ? '  — ' + by : '')));
+  { // keep Today focused: mood + habits stay up front; the rest folds into "More for today" on a phone
+    const core = c => { const t = (c.querySelector && c.querySelector('h3') || {}).textContent || ''; return /^(How are you|Habits)/.test(t); };
+    const extras = [...R.children].filter(c => !core(c));
+    if (extras.length) { const det = h('details', { class: 'more-today' }, h('summary', {}, icon('chevD', 'mini car'), ' More for today'), h('div', { class: 'stack' }, extras)); if (innerWidth >= 860) det.open = true; R.append(det); }
+  }
   const HID = { 'Today’s page': 'timeline', 'Due': 'due', 'How are you?': 'mood', 'Habits': 'habits', 'Body': 'body', 'What should I do?': 'do', 'This week’s three': 'top3', 'On this day': 'onthisday' };
   const hidden = new Set((window.__settings && window.__settings.today_hidden) || []);
   if (hidden.size) el.querySelectorAll('section.card').forEach(c => { const k = HID[(c.querySelector('h3') || {}).textContent] || HID[((c.querySelector('h3') || {}).textContent || '').replace(/^How are you this .*/, 'How are you?')]; if (k && hidden.has(k)) c.remove(); });

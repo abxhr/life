@@ -12,7 +12,8 @@ export function h(tag, attrs, ...kids) {
     else if (k === 'value' || k === 'checked' || k === 'disabled' || k === 'selected') el[k] = v;
     else el.setAttribute(k, v === true ? '' : v);
   }
-  for (const k of kids.flat(Infinity)) if (k != null && k !== false) el.append(k.nodeType ? k : document.createTextNode(String(k)));
+  const isMeta = /(^|\s)meta(\s|$)/.test((attrs && attrs.class) || '');   // bare strings in a .meta row become their own items, so they get spacing
+  for (const k of kids.flat(Infinity)) if (k != null && k !== false) el.append(k.nodeType ? k : isMeta ? h('span', {}, String(k)) : document.createTextNode(String(k)));
   return el;
 }
 export const $ = (s, r = document) => r.querySelector(s);
