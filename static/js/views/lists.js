@@ -5,6 +5,7 @@ import { store } from '../store.js';
 import { modal, toast, empty, field, seg, confirmBox, promptBox } from '../ui.js';
 import { types, isDone, doneStatus, toMarkdown, distanceKm, parseLatLon, BUILTIN } from '../lists-core.js';
 import { loadLeaflet } from '../maps.js';
+import { shareLink } from '../share.js';
 
 const prefs = { view: {}, sort: {}, q: '' };
 const stars = (n, on) => h('span', { class: 'stars', role: 'img', 'aria-label': `${n || 0} of 5` }, [1, 2, 3, 4, 5].map(i => h('button', { type: 'button', class: 'star' + (i <= (n || 0) ? ' on' : ''), 'aria-label': i + ' stars', onclick: on ? () => on(i === n ? 0 : i) : null, style: on ? null : { pointerEvents: 'none' } }, '★')));
@@ -87,6 +88,7 @@ export default async function render(el, ctx) {
     h('input', { class: 'in', style: { width: '160px' }, placeholder: 'Filter…', value: prefs.q, 'aria-label': 'Filter', oninput: debounce(e => { prefs.q = e.target.value; ctx.refresh(); setTimeout(() => { const i = document.querySelector('[aria-label=Filter]'); i && (i.focus(), i.setSelectionRange(99, 99)); }, 60); }, 250) }),
     h('span', { class: 'grow' }),
     h('button', { class: 'btn sm', onclick: () => { const open = items.filter(i => !isDone(i, ty)); if (!open.length) return toast('Nothing left to pick'); const p = open[Math.floor(Math.random() * open.length)]; modal((d, close) => d.append(h('h2', {}, 'How about…'), h('p', { class: 'hero-line', style: { fontSize: '2.4rem' } }, p.title), h('p', { class: 'muted' }, [p.cuisine, p.city || p.area, p.venue].filter(Boolean).join(' · ')), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => { close(); editItem(id, p.id); } }, 'Open'), h('button', { class: 'btn primary', onclick: close }, 'Nice')))); } }, icon('zap'), 'Surprise me'),
+    h('button', { class: 'btn sm', onclick: () => shareLink('list', id) }, icon('link'), 'Link'),
     h('button', { class: 'btn sm', onclick: async () => { const md = toMarkdown(list, items, ty); try { await navigator.clipboard.writeText(md); toast('Copied as Markdown'); } catch { modal((d, c) => d.append(h('h2', {}, 'Share'), h('textarea', { class: 'in', value: md, style: { minHeight: '200px' } }), h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: c }, 'Close')))); } } }, icon('copy'), 'Share'),
     ty.grouped === 'aisle' ? h('button', { class: 'btn sm', onclick: () => { const n = items.filter(i => isDone(i, ty)); n.forEach(i => store.del(i.id)); toast(`Cleared ${n.length}`, () => n.forEach(i => store.restore(i.id))); } }, 'Clear got') : '');
   el.append(tools);

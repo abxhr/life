@@ -76,6 +76,19 @@ def run(pg, mobile):
     if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-assistant.png")
     pg.keyboard.press("Escape")
     go("assistant"); pg.click(".seg button:has-text('Privacy & style')"); pg.wait_for_selector("h3:has-text('What the assistant can see')"); pg.click(".seg button:has-text('Usage')"); pg.wait_for_selector(".pbar")
+    # review: week (save), month, year
+    go("review"); pg.wait_for_selector("h3:has-text('The week in numbers')"); pg.fill("textarea >> nth=0", "Shipped the thing"); pg.fill("input[aria-label='Top 1']", "Call the plumber"); pg.click("button:has-text('Save review')"); pg.wait_for_selector(".toast:has-text('Saved to Notes')")
+    pg.click(".seg button:has-text('Month')"); pg.wait_for_selector("h3:has-text('Goals')"); pg.click(".seg button:has-text('Year')"); pg.wait_for_selector(".yr-title", timeout=15000)
+    if SHOTS: pg.screenshot(path=f"{OUT}/{'m' if mobile else 'd'}-year.png")
+    # extras: people, admin hub, focus, share link, emergency card
+    go("people"); pg.click("button:has-text('Add person') >> nth=0"); pg.fill(".dialog input >> nth=0", "Mum"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector("article:has-text('Mum')"); pg.click("article:has-text('Mum') button:has-text('We spoke today')")
+    go("admin"); pg.click("button:has-text('Add item')"); pg.fill(".dialog input >> nth=0", "AC service"); pg.fill(".dialog input[type=number] >> nth=0", "180"); pg.click(".dialog .btn.primary:has-text('Save')"); pg.wait_for_selector(".item:has-text('AC service')")
+    for tabname in ("Policies & warranties", "Subscriptions", "Decisions", "Someday", "Yearly checklist", "Review cards", "Meals"): pg.click(f".seg button:has-text('{tabname}')"); pg.wait_for_timeout(250)
+    pg.click(".seg button:has-text('Emergency card')"); pg.fill("input[placeholder^='Choose a PIN']", "2468"); pg.click("button:has-text('Set up card')"); pg.fill("input[placeholder='Blood group'], .card input >> nth=1", "O+"); 
+    pg.click("button:has-text('Save & lock')"); pg.wait_for_selector("input[aria-label=PIN]"); pg.fill("input[aria-label=PIN]", "0000"); pg.keyboard.press("Enter"); pg.wait_for_selector("text=not the PIN")
+    pg.fill("input[aria-label=PIN]", "2468"); pg.keyboard.press("Enter"); pg.wait_for_selector(".emerg:has-text('In an emergency')")
+    go("lists"); pg.click("a.card >> nth=0"); pg.click("button:has-text('Link')"); pg.click(".dialog button:has-text('Create link')"); pg.wait_for_selector("input[aria-label='Share link']"); pg.keyboard.press("Escape")
+    go("today"); pg.keyboard.press("Control+k"); pg.fill(".dialog input", "Focus mode"); pg.wait_for_timeout(400); pg.keyboard.press("Enter"); pg.wait_for_selector(".focus .focus-clock"); pg.click(".focus button:has-text('Start')"); pg.wait_for_timeout(1200); pg.click(".focus .focus-x")
     # work mode toggle
     pg.click(f"{'.topbar' if mobile else '.spine'} .mode-sw button[data-m=work]"); go("tasks"); pg.click(".seg button:has-text('Upcoming')"); pg.wait_for_selector(".item .t:has-text('Send deck')")
 

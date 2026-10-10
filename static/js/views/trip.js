@@ -8,6 +8,7 @@ import { tripDialog } from './travel.js';
 import { rules, passports, home } from '../travel-data.js';
 import { buildChecklist, routeKm, flightHours, km } from '../travelcore.js';
 import { loadLeaflet } from '../maps.js';
+import { shareLink } from '../share.js';
 import { types } from '../lists-core.js';
 
 let tab = 'itinerary';
@@ -115,7 +116,7 @@ async function recap(box, t, w) {
 export default async function render(el, ctx) {
   const t = store.get(ctx.rest[1]); if (!t) { el.append(empty('travel', 'That trip is gone', null, h('a', { class: 'btn', href: '#/travel?tab=trips' }, 'All trips'))); return; }
   const w = await world(), n = t.start ? diffDays(today(), t.start) : null;
-  el.append(h('div', { class: 'page-head' }, h('a', { class: 'btn icon sm ghost', href: '#/travel', 'aria-label': 'Back' }, icon('chevL')), h('h1', { class: 'squig', style: { '--dom': 'var(--d-travel)' } }, t.name), h('span', { class: 'sub' }, t.start ? niceDate(t.start, true) + (t.end && t.end !== t.start ? ' → ' + niceDate(t.end, true) : '') : ''), n != null && n >= 0 ? h('span', { class: 'chip dom', style: { '--dom': 'var(--d-travel)' } }, n === 0 ? 'today' : `in ${n} days`) : '', h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => tripDialog(t) }, icon('edit'), 'Edit')),
+  el.append(h('div', { class: 'page-head' }, h('a', { class: 'btn icon sm ghost', href: '#/travel', 'aria-label': 'Back' }, icon('chevL')), h('h1', { class: 'squig', style: { '--dom': 'var(--d-travel)' } }, t.name), h('span', { class: 'sub' }, t.start ? niceDate(t.start, true) + (t.end && t.end !== t.start ? ' → ' + niceDate(t.end, true) : '') : ''), n != null && n >= 0 ? h('span', { class: 'chip dom', style: { '--dom': 'var(--d-travel)' } }, n === 0 ? 'today' : `in ${n} days`) : '', h('span', { class: 'grow' }), h('button', { class: 'btn sm', onclick: () => shareLink('trip', t.id) }, icon('link'), 'Share'), h('button', { class: 'btn sm', onclick: () => tripDialog(t) }, icon('edit'), 'Edit')),
     h('div', { style: { margin: '0 0 18px', overflowX: 'auto' } }, seg(TABS, tab, v => { tab = v; ctx.refresh(); })));
   const box = h('div', { class: 'stack' }); el.append(box);
   await ({ itinerary, bookings, docs, packing, budget, check, journal, recap })[tab](box, t, w);

@@ -5,6 +5,7 @@ import { store } from './store.js';
 import { modal, toast, empty } from './ui.js';
 import { state, applyTheme, inMode } from './state.js';
 import { openCapture } from './capture.js';
+import { expenseDialog } from './expense.js';
 
 applyTheme();
 const root = $('#app');
@@ -17,7 +18,7 @@ export const SECTIONS = [
 const VIEWS = { today: () => import('./views/today.js'), inbox: () => import('./views/inbox.js'), tasks: () => import('./views/tasks.js'), calendar: () => import('./views/calendar.js'),
   notes: () => import('./views/notes.js'), lists: () => import('./views/lists.js'), goals: () => import('./views/goals.js'), travel: () => import('./views/travel.js'),
   health: () => import('./views/health.js'), assistant: () => import('./views/assistant.js'), review: () => import('./views/review.js'), settings: () => import('./views/settings.js'),
-  work: () => import('./views/workcapture.js'), do: () => import('./views/do.js'), people: () => import('./views/people.js'), vault: () => import('./views/vault.js') };
+  work: () => import('./views/workcapture.js'), do: () => import('./views/do.js'), admin: () => import('./views/admin.js'), people: () => import('./views/people.js'), vault: () => import('./views/vault.js') };
 
 let cur = { name: '', cleanup: null }, mainEl, pageEl, authed = false;
 
@@ -111,7 +112,7 @@ async function render(soft) {
 }
 function moreView() {
   const rest = SECTIONS.filter(s => !(window.__settings?.tabs || ['today', 'tasks', 'calendar', 'notes']).slice(0, 4).includes(s[0]));
-  const extra = [['people', 'People', 'user'], ['vault', 'Documents', 'shield'], ['work', 'Work capture', 'briefcase']];
+  const extra = [['people', 'People', 'user'], ['vault', 'Documents', 'shield'], ['work', 'Work capture', 'briefcase'], ['admin', 'Life admin', 'home']];
   pageEl.replaceChildren(h('div', { class: 'page-head' }, h('h1', { class: 'squig' }, 'More')), h('div', { class: 'stack-s' }, [...rest, ...extra].map(([id, l, ic]) => h('a', { class: 'btn', style: { justifyContent: 'flex-start' }, href: '#/' + id }, icon(ic), l))));
 }
 
@@ -122,7 +123,7 @@ export function palette() {
     let items = [], sel = 0;
     const acts = () => [...SECTIONS.map(([id, l, ic]) => ({ l: 'Go to ' + l, ic, run: () => go(id) })),
       { l: 'New capture', ic: 'plus', run: () => openCapture() }, { l: 'New task', ic: 'tasks', run: () => { go('tasks'); setTimeout(() => document.dispatchEvent(new CustomEvent('new-task')), 200); } },
-      { l: 'New note', ic: 'notes', run: () => go('notes/new') }, { l: 'Work capture page', ic: 'briefcase', run: () => go('work') }, { l: 'Toggle dark mode', ic: 'moon', run: () => state.setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark') }];
+      { l: 'New note', ic: 'notes', run: () => go('notes/new') }, { l: 'Work capture page', ic: 'briefcase', run: () => go('work') }, { l: 'Focus mode (deep work)', ic: 'zap', run: () => import('./focus.js').then(m => m.openFocus()) }, { l: 'Log an expense (wealth app)', ic: 'send', run: () => expenseDialog() }, { l: 'Life admin', ic: 'home', run: () => go('admin') }, { l: 'People', ic: 'user', run: () => go('people') }, { l: 'Toggle dark mode', ic: 'moon', run: () => state.setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark') }];
     const paint = () => { clear(res); items.forEach((it, i) => res.append(h('button', { role: 'option', 'aria-selected': String(i === sel), onclick: () => { close(); it.run(); } }, icon(it.ic || 'search'), h('span', { class: 'grow' }, it.l), it.sub ? h('span', { class: 'faint small' }, it.sub) : ''))); };
     const find = debounce(async () => {
       const q = inp.value.trim().toLowerCase(); const a = acts().filter(x => !q || x.l.toLowerCase().includes(q)).slice(0, 8);

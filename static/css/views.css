@@ -79,3 +79,18 @@ input[type=range] { accent-color: var(--pen); min-height: 32px; }
 .chat-in { min-height: 44px; max-height: 160px; resize: none; line-height: 1.3; padding: 8px; background-image: none; }
 .assistant-sheet .chat-list { max-height: 50vh; } pre.preview { white-space: pre-wrap; background: var(--panel-2); padding: 10px; border-radius: 6px; max-height: 45vh; overflow: auto; font: .8rem/1.3 var(--f-ui); }
 .confirm { max-width: 520px; }
+
+/* year in review: the poster */
+.yr { background: var(--panel); border: 1.5px solid var(--ink); border-radius: 4px; padding: 32px clamp(18px, 4vw, 48px); box-shadow: 6px 8px 0 rgba(0,0,0,.12); position: relative; }
+.yr::before { content: ""; position: absolute; top: -12px; left: 12%; width: 110px; height: 24px; background: var(--tape); transform: rotate(-3deg); }
+.yr-title { font: 700 clamp(2.6rem, 8vw, 5rem)/1 var(--f-title); margin: 0; } .yr-sub { color: var(--ink-3); margin: 4px 0 24px; }
+.yr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 18px 24px; margin-bottom: 24px; }
+.yr-stat b { display: block; font: 700 3rem/1 var(--f-title); color: var(--pen); } .yr-stat span { color: var(--ink-2); }
+.yr-p { font-size: 1.3rem; margin: 0 0 12px; } .yr-block { margin-top: 24px; border-top: 1.5px dashed var(--rule); padding-top: 12px; }
+@media print { .no-print { display: none !important; } .page { background: none; padding: 0; } .yr { box-shadow: none; border-color: #000; } body { background: #fff; } }
+
+/* focus mode, emergency card */
+.focus { position: fixed; inset: 0; z-index: 80; background: var(--paper); display: grid; place-items: center; text-align: center; padding: 24px; background-image: linear-gradient(transparent 31px, var(--rule-soft) 31px); background-size: 100% 32px; }
+.focus-in { max-width: 560px; } .focus-title { font: 700 clamp(2rem, 6vw, 3.4rem)/1.05 var(--f-title); margin: 6px 0 18px; } .focus-clock { font: 700 clamp(4rem, 16vw, 8rem)/1 var(--f-title); color: var(--pen); margin-bottom: 14px; }
+.focus-x { position: absolute; top: 16px; right: 16px; }
+.emerg { max-width: 560px; } .em-row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; margin: 0 0 10px; } .em-row span { color: var(--ink-3); } .em-row b { font: 700 1.5rem/1.15 var(--f-title); }

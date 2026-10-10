@@ -14,6 +14,7 @@ export const BUILTIN = {
   grocery: { name: 'Grocery', icon: 'lists', statuses: ['need', 'got'], grouped: 'aisle', fields: [S('aisle', 'Aisle', ['produce', 'dairy', 'meat & fish', 'bakery', 'pantry', 'frozen', 'drinks', 'household', 'other']), T('qty', 'Qty')] },
   packing: { name: 'Packing template', icon: 'lists', statuses: ['to pack', 'packed'], grouped: 'group', fields: [S('group', 'Group', ['documents', 'clothes', 'toiletries', 'tech', 'health', 'misc']), T('qty', 'Qty')] },
   learning: { name: 'Learning & skills', icon: 'book', statuses: ['queued', 'learning', 'done'], fields: [T('kind', 'Kind (course, skill, book)'), T('progress', 'Progress %', 'number'), T('url', 'Link', 'url')] },
+  readlater: { name: 'Read later', icon: 'link', statuses: ['to read', 'reading', 'read'], fields: [T('url', 'Link', 'url'), T('minutes', 'Minutes to read', 'number'), T('source', 'From')] },
   ideas: { name: 'Ideas', icon: 'zap', statuses: ['spark', 'exploring', 'parked', 'done'], fields: [] },
 };
 export const types = () => { const o = { ...BUILTIN }; store.list('list_type').forEach(t => o[t.id] = { name: t.name, icon: 'lists', statuses: t.statuses || ['open', 'done'], fields: t.fields || [], custom: true }); return o; };
