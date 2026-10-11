@@ -2,7 +2,7 @@
 import { h, ago } from '../util.js';
 import { icon } from '../icons.js';
 import { store } from '../store.js';
-import { modal, toast, field, confirmBox } from '../ui.js';
+import { modal, toast, field, confirmBox, promptBox } from '../ui.js';
 import { parse } from '../nlp.js';
 import { makeCollector, itemId, linesFromText } from '../qrhandoff.js';
 import { loadJsQR } from '../maps.js';
@@ -67,5 +67,12 @@ export default async function render(el, ctx) {
   const tb = h('div', { class: 'stack-s' });
   const paintT = () => tb.replaceChildren(...(tokens.length ? tokens.map(t => h('div', { class: 'item' }, h('div', { class: 'grow' }, t.label, h('div', { class: 'meta' }, `made ${ago(t.created_at)} · used ${t.uses}× · ${t.revoked_at ? 'revoked' : t.last_used ? 'last ' + ago(t.last_used) : 'never used'}`)), t.revoked_at ? '' : h('button', { class: 'btn sm danger', onclick: async () => { if (await confirmBox('Revoke this token?', 'The work page using it will stop syncing.', { ok: 'Revoke', danger: true })) { await store.api('/api/tokens/' + t.id, { method: 'DELETE' }); t.revoked_at = new Date().toISOString(); paintT(); } } }, 'Revoke'))) : [h('p', { class: 'faint' }, 'No tokens yet.')]));
   paintT();
-  stack.append(h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Capture tokens')), h('p', { class: 'muted small' }, 'Write-only: a token can add inbox items and nothing else — it can’t read a single note, task, health or money record. Rate-limited, revocable, logged.'), tb));
+  const newToken = async () => {
+    const label = await promptBox('Name this token', { value: 'iphone', placeholder: 'e.g. iphone, work-pc', ok: 'Create' }); if (!label) return;
+    const j = await store.api('/api/tokens', { method: 'POST', body: JSON.stringify({ label }) });
+    tokens.unshift({ id: j.id, label, created_at: new Date().toISOString(), uses: 0 }); paintT();
+    modal((d, close) => { const t = h('input', { class: 'in', readonly: true, value: j.token, 'aria-label': 'Token', onfocus: e => e.target.select() });
+      d.append(h('h2', {}, 'Your token'), h('p', { class: 'muted small' }, 'Copy it now — it’s shown only once.'), t, h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => { navigator.clipboard?.writeText(j.token).then(() => toast('Copied')).catch(() => t.select()); } }, icon('copy'), 'Copy'), h('button', { class: 'btn primary', onclick: close }, 'Done'))); }, { label: 'New token' });
+  };
+  stack.append(h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Capture tokens'), h('button', { class: 'btn sm', onclick: newToken }, icon('plus'), 'New token')), h('p', { class: 'muted small' }, 'Write-only: a token can add inbox items (and file shared posts into your lists) and nothing else — it can’t read a single note, task, health or money record. Rate-limited, revocable, logged.'), tb));
 }

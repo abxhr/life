@@ -12,6 +12,8 @@ def register(app, login_required, db, raw_db, set_state, kv_get, kv_set, setting
     push.register(app, login_required, db, raw_db, set_state, now_iso, upsert, audit, os.environ.get('LIFE_DATA', 'data'))
     assistant.register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit)
     garmin.register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit)
+    import feeds
+    feeds.register(app, login_required, db, raw_db, kv_get, kv_set, settings, audit)
 
     @app.post("/api/gmail/sync")
     @login_required

@@ -59,7 +59,27 @@ def map_activity(a):
             "duration_min": round((a.get("duration") or 0) / 60, 1), "avg_hr": a.get("averageHR"), "calories": a.get("calories"), "gid": a.get("activityId")}
 
 
+def tokdir_default():
+    return os.path.join(os.environ.get("LIFE_DATA", "data"), "garmin-tokens")
+
+
+def connected(tokdir=None):
+    """True once a one-time sign-in has left tokens behind (Pulse-style: after that the password is never used again)."""
+    d = tokdir or tokdir_default()
+    return os.path.isdir(d) and any(os.scandir(d))
+
+
+def _with_tokens(tokdir):
+    """Reuse saved tokens (the library refreshes them itself). No email, no password, no code: this can never make Garmin send a verification email."""
+    from garminconnect import Garmin
+    g = Garmin()
+    g.login(tokdir)
+    return g
+
+
 def _client(email, pw, tokdir):
+    """The one-time sign-in with email + password. MFA -> NeedsMFA (enter the code once). Saves the tokens so this never has to happen again.
+    In return_on_mfa mode the library returns BEFORE saving anything, so we save explicitly."""
     from garminconnect import Garmin
     g = Garmin(email, pw, return_on_mfa=True)
     res = g.login(tokdir)
@@ -67,24 +87,38 @@ def _client(email, pw, tokdir):
         with _lock:
             _pending["g"], _pending["state"] = g, res[1]
         raise NeedsMFA()
-    return g
+    os.makedirs(tokdir, exist_ok=True)
+    g.client.dump(tokdir)
+    return _with_tokens(tokdir)
 
 
 class NeedsMFA(Exception):
     pass
 
 
-def sync(upsert, raw_db, set_state, now_iso, days=3):
-    email, pw = os.environ.get("GARMIN_EMAIL"), os.environ.get("GARMIN_PASSWORD")
-    if not email or not pw:
-        set_state("garmin", False, "", "not configured (GARMIN_EMAIL / GARMIN_PASSWORD in .env) — manual import still works")
-        return {"ok": False, "reason": "not configured"}
-    tokdir = os.path.join(os.environ.get("LIFE_DATA", "data"), "garmin-tokens")
+def sync(upsert, raw_db, set_state, now_iso, days=3, interactive=False):
+    """interactive=True only for the Sync/Connect button. The background scheduler (interactive=False) NEVER signs in with a password,
+    because every password sign-in makes Garmin email a security code. If the saved tokens stop working it just says so and waits for you."""
+    tokdir = tokdir_default()
     os.makedirs(tokdir, exist_ok=True)
+    if connected(tokdir):
+        try:
+            return _pull(_with_tokens(tokdir), upsert, raw_db, set_state, days)
+        except Exception as e:
+            if not interactive:
+                set_state("garmin", False, f"Garmin sign-in expired ({str(e)[:100]}). Press Sync now in Health to reconnect once; Life won't retry by itself, so no more emails.")
+                return {"ok": False, "reason": "reauth"}
+    email, pw = os.environ.get("GARMIN_EMAIL"), os.environ.get("GARMIN_PASSWORD")
+    if not interactive:
+        set_state("garmin", False, "", "not connected yet: press Sync now in Health once to sign in (Garmin sends one code, and that's the only time)")
+        return {"ok": False, "reason": "not connected"}
+    if not email or not pw:
+        set_state("garmin", False, "", "not configured (Garmin email and password in Settings → Garmin) — manual import still works")
+        return {"ok": False, "reason": "not configured"}
     try:
         g = _client(email, pw, tokdir)
     except NeedsMFA:
-        set_state("garmin", False, "Garmin wants a verification code (MFA). Enter it in Health → Import & sync.")
+        set_state("garmin", False, "Garmin wants a verification code (MFA). Enter it in Health → Import & sync. This is the only time.")
         return {"ok": False, "reason": "mfa"}
     except Exception as e:
         set_state("garmin", False, f"login failed: {str(e)[:160]}")
@@ -167,7 +201,7 @@ def register(app, login_required, db, raw_db, set_state, kv_get, kv_set, setting
     @app.post("/api/garmin/sync")
     @login_required
     def garmin_sync():
-        return jsonify(sync(upsert, raw_db, set_state, now_iso, days=int((request.get_json(silent=True) or {}).get("days", 7))))
+        return jsonify(sync(upsert, raw_db, set_state, now_iso, days=int((request.get_json(silent=True) or {}).get("days", 7)), interactive=True))
 
     @app.post("/api/garmin/mfa")
     @login_required
@@ -179,10 +213,8 @@ def register(app, login_required, db, raw_db, set_state, kv_get, kv_set, setting
             return jsonify(error="No Garmin login is waiting for a code. Press Sync first."), 400
         try:
             g.resume_login(state, code)
-            try:
-                g.garth.dump(os.path.join(os.environ.get("LIFE_DATA", "data"), "garmin-tokens"))
-            except Exception:
-                pass
+            tokdir = tokdir_default(); os.makedirs(tokdir, exist_ok=True)
+            g.client.dump(tokdir)   # save the tokens: after this, no password and no more codes
             with _lock:
                 _pending.clear()
             return jsonify(_pull(g, upsert, raw_db, set_state, 7))

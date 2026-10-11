@@ -103,9 +103,12 @@ async function budget(box, t) {
 }
 
 async function check(box, t, w) {
-  const mk = () => buildChecklist(t, { today: today(), docs: passports().concat(store.list('travel_doc', d => d.type !== 'passport')), rules: store.list('visa_rule'), countryName: a => w.byA2[a]?.name || a });
-  const merge = () => { const old = Object.fromEntries((t.checklist || []).map(c => [c.key, c])); const fresh = mk().map(c => ({ ...c, done: old[c.key] ? old[c.key].done || c.done : c.done })); store.put('trip', { checklist: fresh }, t.id); };
-  if (!t.checklist) { merge(); return; }
+  const entry = {};   // entry rules for MY passport, per country (server-cached; skipped quietly offline or before Settings has a passport)
+  const load = async () => { for (const a of t.countries || []) { try { const c = await store.api('/api/visa?to=' + a.toLowerCase()); if (c && c.verdict) entry[a] = c; } catch { /* offline */ } } };
+  const mk = () => buildChecklist(t, { today: today(), docs: passports().concat(store.list('travel_doc', d => d.type !== 'passport')), rules: store.list('visa_rule'), entry, countryName: a => w.byA2[a]?.name || a });
+  const merge = async () => { await load(); merge2(); };
+  const merge2 = () => { const old = Object.fromEntries((t.checklist || []).map(c => [c.key, c])); const fresh = mk().map(c => ({ ...c, done: old[c.key] ? old[c.key].done || c.done : c.done })); store.put('trip', { checklist: fresh }, t.id); };
+  if (!t.checklist) { await merge(); return; }
   box.append(h('div', { class: 'row' }, h('span', { class: 'muted grow' }, 'Built from your documents and the places you’re going.'), h('button', { class: 'btn sm', onclick: merge }, icon('refresh'), 'Re-check')));
   box.append(h('div', { class: 'card' }, t.checklist.map(c => h('div', { class: 'item' + (c.done ? ' done' : '') }, h('input', { type: 'checkbox', class: 'chk', checked: c.done, onchange: e => store.put('trip', { checklist: t.checklist.map(x => x.key === c.key ? { ...x, done: e.target.checked } : x) }, t.id) }), h('div', { class: 'grow' }, h('span', { class: 't' }, c.title), c.note ? h('div', { class: 'meta', style: c.status === 'warn' ? { color: 'var(--warn)' } : null }, c.note) : '')))));
 }

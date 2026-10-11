@@ -3,10 +3,11 @@ import glob, os, subprocess, sys, time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 py = sys.executable; fast = "--fast" in sys.argv; env = dict(os.environ, PYTHONIOENCODING="utf8", PYTHONUTF8="1")
 steps = [("JS syntax (every module)", None)]
-steps += [("node unit tests", ["node", "tests/test_nlp.mjs"]), ("", ["node", "tests/test_suggest.mjs"]), ("", ["node", "tests/test_travel.mjs"]), ("", ["node", "tests/test_insights.mjs"]), ("", ["node", "tests/test_notion.mjs"]),
+steps += [("node unit tests", ["node", "tests/test_nlp.mjs"]), ("", ["node", "tests/test_suggest.mjs"]), ("", ["node", "tests/test_travel.mjs"]), ("", ["node", "tests/test_insights.mjs"]), ("", ["node", "tests/test_notion.mjs"]), ("", ["node", "tests/test_dedupe.mjs"]),
           ("pytest (backend, security, assistant, reminders, share, push, garmin)", [py, "-m", "pytest", "tests", "-q"])]
 if not fast:
-    steps += [("smoke: every page x 2 viewports x 2 themes, zero console errors", [py, "tests/smoke.py"]), ("flows: capture, tasks, notes, lists, travel, health, assistant, review, extras", [py, "tests/flows.py"]), ("work page: offline, zero network requests", [py, "tests/workpage.py"]), ("offline-first: shell with no network, outbox, sync on reconnect", [py, "tests/offline.py"]), ("quality: XSS, accessibility, performance", [py, "tests/quality.py"])]
+    steps += [("smoke: every page x 2 viewports x 2 themes, zero console errors", [py, "tests/smoke.py"]), ("flows: capture, tasks, notes, lists, travel, health, assistant, review, extras", [py, "tests/flows.py"]), ("work page: offline, zero network requests", [py, "tests/workpage.py"]), ("offline-first: shell with no network, outbox, sync on reconnect", [py, "tests/offline.py"]), ("quality: XSS, accessibility, performance", [py, "tests/quality.py"]), ("notion-style flows", [py, "tests/flows_notion.py"]), ("lists: hide done, short rows, links, move, multi-select, duplicates, filters", [py, "tests/flows_lists.py"]), ("", [py, "tests/flows_lists2.py"]),
+          ("travel: entry card + where can I go", [py, "tests/flows_visa.py"]), ("Face ID: set up, require, lock, unlock (virtual authenticator)", [py, "tests/flows_faceid.py"]), ("touch: swipe, undo, sheet drag, pull to refresh", [py, "tests/flows_touch.py"])]
 fail = []; t0 = time.time()
 for label, cmd in steps:
     if label: print(f"\n== {label}", flush=True)

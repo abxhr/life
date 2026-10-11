@@ -2,6 +2,7 @@
 import os, json, uuid, time, sqlite3, secrets, hashlib, hmac, threading, zipfile, io, re, shutil, glob
 from datetime import datetime, timezone, timedelta
 from functools import wraps
+import passkeys
 from flask import Flask, request, jsonify, session, send_from_directory, g, abort, Response
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -87,15 +88,21 @@ def _close(e):
 
 # ---------- kv / settings ----------
 DEFAULT_SETTINGS = {
-    "name": "Abshar", "timezone": "Asia/Dubai", "currency": "AED", "work_days": [1, 2, 3, 4, 5],
+    "name": "friend", "timezone": "Asia/Dubai", "currency": "AED", "work_days": [1, 2, 3, 4, 5],
     "work_start": "09:00", "work_end": "18:00", "evening_from": "20:00", "quiet_from": "23:00", "quiet_to": "07:00",
     "theme": "system", "density": "comfortable", "feeds": [], "activities": ["padel", "football", "tennis", "badminton", "bowling", "karting", "hiking", "beach", "board games"],
     "tabs": ["today", "tasks", "calendar", "notes"], "telegram_chat_id": "", "ai_model": "claude-sonnet-5-5", "ai_fast_model": "claude-haiku-5-5",
     "ai_strong_model": "claude-opus-5-5", "ai_monthly_cap_usd": 10, "ai_enabled_modules": ["tasks", "notes", "lists", "goals", "travel"],
-    "persona": "friend", "wealth_url": "", "wealth_token": "", "briefing_ai": True, "mood_prompts": False, "today_hidden": [], "agenda_push": False, "agenda_time": "07:30", "agenda_workdays_only": True, "cycle_tracking": False,
-    "home_lat": 25.25, "home_lon": 55.36, "stay_rules": None, "areas": None, "email_in_allowed": [], "ai_health": False, "ai_features": {}, "ai_prices": None, "ai_proactive": {}, "ai_auto_low": False, "year_start_month": 1,
+    "persona": "friend", "wealth_url": "", "wealth_token": "", "openai_key": "", "ai_provider": "openai", "oa_model": "gpt-5-mini", "oa_fast_model": "gpt-5-nano", "oa_strong_model": "gpt-5", "briefing_ai": True, "mood_prompts": False, "today_hidden": [], "agenda_push": False, "agenda_time": "07:30", "agenda_workdays_only": True, "cycle_tracking": False,
+    "faceid_required": False, "lock_minutes": 5, "nationality": "", "residency": "", "notify": {"channels": "both", "categories": {}}, "home_lat": 25.25, "home_lon": 55.36, "stay_rules": None, "areas": None, "email_in_allowed": [], "ai_health": False, "ai_features": {}, "ai_prices": None, "ai_proactive": {}, "ai_auto_low": False, "year_start_month": 1,
 }
-SECRET_SETTINGS = {"wealth_token"}
+# Integration credentials: set in Settings (stored encrypted); a blank setting falls back to the same name in .env
+ENV_SETTINGS = {"anthropic_api_key": "ANTHROPIC_API_KEY", "telegram_bot_token": "TELEGRAM_BOT_TOKEN", "telegram_webhook_secret": "TELEGRAM_WEBHOOK_SECRET", "gmail_user": "GMAIL_USER",
+                "gmail_app_password": "GMAIL_APP_PASSWORD", "garmin_email": "GARMIN_EMAIL", "garmin_password": "GARMIN_PASSWORD", "omdb_key": "OMDB_API_KEY"}
+DEFAULT_SETTINGS.update({k: "" for k in ENV_SETTINGS})
+SECRET_SETTINGS = {"wealth_token", "openai_key", "anthropic_api_key", "telegram_bot_token", "telegram_webhook_secret", "gmail_app_password", "garmin_password", "omdb_key"}
+_ENV_FILE = {v: os.environ.get(v) for v in ENV_SETTINGS.values()}   # what .env / the OS gave us, to fall back to
+_applied = set()
 
 
 def kv_get(k, default=None):
@@ -113,7 +120,26 @@ def kv_set(k, v):
 def settings():
     s = dict(DEFAULT_SETTINGS)
     s.update(kv_get("settings", {}) or {})
+    for k in SECRET_SETTINGS:
+        if isinstance(s.get(k), str) and s[k].startswith("enc:"):
+            s[k] = dec(s[k])
     return s
+
+
+def apply_env():
+    """Push the credentials saved in Settings into this process's environment (the integrations read os.environ per call, so no restart is needed).
+    Only variables we set ourselves are touched; clearing a setting puts back what .env / the OS had."""
+    s = settings()
+    for k, var in ENV_SETTINGS.items():
+        v = (s.get(k) or "").strip()
+        if v:
+            os.environ[var] = v; _applied.add(var)
+        elif var in _applied:
+            _applied.discard(var)
+            if _ENV_FILE.get(var):
+                os.environ[var] = _ENV_FILE[var]
+            else:
+                os.environ.pop(var, None)
 
 
 def audit(action, detail=""):
@@ -129,9 +155,11 @@ def redact(t):
         v = os.environ.get(k)
         if v and len(v) > 5:
             t = t.replace(v, "***")
-    w = (kv_get("settings", {}) or {}).get("wealth_token")
-    if w and len(w) > 5:
-        t = t.replace(w, "***")
+    st = settings()
+    for k in SECRET_SETTINGS:
+        w = st.get(k)
+        if w and len(w) > 5:
+            t = t.replace(w, "***")
     return re.sub(r"bot\d{6,}:[\w-]{20,}", "bot***", re.sub(r"sk-ant-[\w-]+", "sk-ant-***", t))
 
 
@@ -176,15 +204,21 @@ def mask_out(kind, data):
 
 
 # ---------- auth ----------
-def hash_pw(pw, salt=None):
+PBKDF2_ROUNDS = 600_000   # OWASP's current figure for PBKDF2-HMAC-SHA256
+
+
+def hash_pw(pw, salt=None, rounds=PBKDF2_ROUNDS):
     salt = salt or secrets.token_hex(16)
-    h = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), 310_000).hex()
-    return f"{salt}${h}"
+    h = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), rounds).hex()
+    return f"v2${rounds}${salt}${h}"
 
 
 def check_pw(pw, stored):
-    salt, _ = stored.split("$")
-    return hmac.compare_digest(hash_pw(pw, salt), stored)
+    if stored.startswith("v2$"):
+        _, rounds, salt, h = stored.split("$")
+        return hmac.compare_digest(hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), int(rounds)).hex(), h)
+    salt, h = stored.split("$")   # the original format: 310,000 rounds
+    return hmac.compare_digest(hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), 310_000).hex(), h)
 
 
 _attempts = {}
@@ -201,11 +235,23 @@ def rate_ok(key, limit, window):
     return True
 
 
+def faceid_locked():
+    """With "Require Face ID" on, a signed-in session also needs a recent Face ID unlock. lock_minutes is how long the app may sit in the background (0 = lock when you switch away)."""
+    s = settings()
+    if not (s.get("faceid_required") and kv_get("passkeys")):
+        return False
+    mins = int(s.get("lock_minutes") or 0)
+    return not session.get("unlocked") or time.time() - session.get("seen", 0) > mins * 60 + (10 if mins == 0 else 0)
+
+
 def login_required(f):
     @wraps(f)
     def w(*a, **k):
         if not session.get("ok"):
             return jsonify(error="auth"), 401
+        if faceid_locked():
+            return jsonify(error="locked"), 401
+        session["seen"] = time.time()
         if request.method in ("POST", "PUT", "PATCH", "DELETE"):
             if not hmac.compare_digest(request.headers.get("X-CSRF", ""), session.get("csrf", "x")):
                 return jsonify(error="csrf"), 403
@@ -219,7 +265,12 @@ def headers(r):
     r.headers["X-Frame-Options"] = "DENY"
     r.headers["Referrer-Policy"] = "same-origin"
     r.headers["Content-Security-Policy"] = ("default-src 'self'; img-src 'self' data: blob: https://*.tile.openstreetmap.org; "
-                                            "style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://*.tile.openstreetmap.org; frame-ancestors 'none'; worker-src 'self'; manifest-src 'self'; media-src 'self' blob:")
+                                            "style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://*.tile.openstreetmap.org; frame-ancestors 'none'; worker-src 'self'; manifest-src 'self'; media-src 'self' blob:; "
+                                            "base-uri 'self'; form-action 'self'; object-src 'none'")
+    r.headers["Permissions-Policy"] = "camera=(), microphone=(self), geolocation=(self), payment=(), usb=(), interest-cohort=()"
+    r.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    if os.environ.get("LIFE_HTTPS") == "1":
+        r.headers["Strict-Transport-Security"] = "max-age=31536000"
     return r
 
 
@@ -228,7 +279,10 @@ def me():
     has_pw = kv_get("pw") is not None
     if session.get("ok") and not session.get("csrf"):
         session["csrf"] = secrets.token_hex(16)
-    return jsonify(setup=not has_pw, authed=bool(session.get("ok")), csrf=session.get("csrf") if session.get("ok") else None)
+    locked = bool(session.get("ok")) and faceid_locked()
+    s = settings(); required = bool(s.get("faceid_required") and kv_get("passkeys"))
+    return jsonify(setup=not has_pw, authed=bool(session.get("ok")) and not locked, locked=locked, faceid=required, lock_minutes=int(s.get("lock_minutes") or 0),
+                   csrf=session.get("csrf") if session.get("ok") and not locked else None)
 
 
 @app.post("/api/login")
@@ -238,6 +292,8 @@ def login():
     if not rate_ok("login:" + (request.remote_addr or ""), 8, 300):
         return jsonify(error="Too many tries. Wait a few minutes."), 429
     stored = kv_get("pw")
+    if stored is not None and settings().get("faceid_required") and kv_get("passkeys") and not passkeys.local_request():
+        return jsonify(error="Face ID is required here. The password only works from the PC itself."), 403
     if stored is None:  # first-run setup
         if len(pw) < 8:
             return jsonify(error="Use at least 8 characters."), 400
@@ -246,10 +302,13 @@ def login():
     elif not check_pw(pw, stored):
         audit("login_fail")
         return jsonify(error="That's not it."), 401
+    elif not stored.startswith("v2$") or int(stored.split("$")[1]) < PBKDF2_ROUNDS:
+        kv_set("pw", hash_pw(pw))   # upgrade an older hash now that we have the password in hand
     session.clear()
     session.permanent = True
     session["ok"] = True
     session["csrf"] = secrets.token_hex(16)
+    session["unlocked"] = True; session["seen"] = time.time()
     return jsonify(ok=True, csrf=session["csrf"])
 
 
@@ -291,8 +350,12 @@ def put_settings():
         if k in SECRET_SETTINGS and v == "set":
             continue
         if k in DEFAULT_SETTINGS:
-            cur[k] = v
+            cur[k] = enc(v.strip()) if k in SECRET_SETTINGS and isinstance(v, str) else v
+    if cur.get("faceid_required") and not kv_get("passkeys"):
+        cur["faceid_required"] = False
     kv_set("settings", cur)
+    session["unlocked"] = True; session["seen"] = time.time()
+    apply_env()
     return jsonify(ok=True)
 
 
@@ -603,6 +666,22 @@ def backup_now():
     return jsonify(ok=True)
 
 
+@app.get("/api/backup/download")
+@login_required
+def backup_download():
+    """A consistent copy of the database as a zip, ready for the Files app. ?key=1 adds the encryption key (needed to read passport numbers etc. after a restore): keep that file private."""
+    import zipfile, tempfile
+    src = raw_db(); fd, tmp = tempfile.mkstemp(suffix=".db"); os.close(fd)
+    out = sqlite3.connect(tmp); src.backup(out); out.close(); src.close()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.write(tmp, "life.db")
+        if request.args.get("key") == "1":
+            z.write(os.path.join(DATA, "fernet.key"), "fernet.key")
+    os.unlink(tmp); audit("backup_download", "with key" if request.args.get("key") == "1" else "")
+    return Response(buf.getvalue(), mimetype="application/zip", headers={"Content-Disposition": f"attachment; filename=life-backup-{datetime.now().strftime('%Y%m%d')}.zip", "Cache-Control": "no-store"})
+
+
 @app.post("/api/demo")
 @login_required
 def demo_load():
@@ -655,6 +734,8 @@ def sw():
     for base, _, names in os.walk(app.static_folder):
         for n in names:
             p = os.path.join(base, n)
+            if os.path.basename(base) == "splash":   # iOS launch images: fetched by iOS itself, not needed offline
+                continue
             files.append("/static/" + os.path.relpath(p, app.static_folder).replace("\\", "/"))
             newest = max(newest, os.path.getmtime(p))
     body = open(os.path.join(ROOT, "sw.js"), encoding="utf8").read().replace("__V__", str(int(newest))).replace("__FILES__", json.dumps(files))
@@ -678,6 +759,7 @@ def styleguide():
     return send_from_directory(ROOT, "styleguide.html", max_age=0)
 
 
+passkeys.register(app, login_required, kv_get, kv_set, settings, rate_ok, audit)
 import integrations  # noqa: E402  (registers routes: ics, telegram, weather, work capture, garmin, ai ...)
 integrations.register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit)
 
@@ -712,5 +794,9 @@ def main():
 
 
 init_db()
+cur_s = kv_get("settings", {}) or {}
+if any(isinstance(cur_s.get(k), str) and cur_s[k] and not cur_s[k].startswith("enc:") for k in SECRET_SETTINGS):   # keys saved before encryption existed
+    kv_set("settings", {k: enc(v) if k in SECRET_SETTINGS and isinstance(v, str) else v for k, v in cur_s.items()})
+apply_env()
 if __name__ == "__main__":
     main()

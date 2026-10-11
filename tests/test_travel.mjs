@@ -41,3 +41,18 @@ assert.equal(isUN('FR'), true); assert.equal(isUN('TW'), false);
 const items = buildChecklist({ start: '2026-11-01', end: '2026-11-10', countries: ['JP'] }, { today: '2026-10-10', docs: [{ id: 'p1', type: 'passport', nationality: 'IN', expiry: '2027-03-01' }], rules: [], countryName: () => 'Japan' });
 assert.equal(items.find(i => i.key === 'passport:p1').status, 'warn'); assert.ok(items.find(i => i.key === 'visa:JP')); assert.equal(items.find(i => i.key === 'insurance').status, 'todo');
 console.log('travel OK');
+
+// ---- a visa you already hold satisfies that country's checklist item ----
+{ const its = buildChecklist({ start: '2026-11-01', end: '2026-11-10', countries: ['JP', 'SA'] }, { today: '2026-10-10', docs: [{ id: 'p1', type: 'passport', nationality: 'IN', expiry: '2030-01-01' }, { id: 'v1', type: 'visa', name: 'Japan tourist visa', nationality: 'JP', expiry: '2030-06-01' }, { id: 'v2', type: 'visa', name: 'Saudi e-visa', nationality: 'SA', expiry: '2026-11-05' }], rules: [], countryName: c => ({ JP: 'Japan', SA: 'Saudi Arabia' })[c] });
+  const jp = its.find(i => i.key === 'visa:JP:v1'), sa = its.find(i => i.key === 'visa:SA:v2');
+  assert.equal(jp.status, 'ok'); assert.ok(!its.some(i => i.key === 'visa:JP'), 'no "go check the rules" nag when you hold the visa');
+  assert.equal(sa.status, 'warn', 'visa that expires before you are back is flagged'); }
+console.log('held visas OK');
+
+// ---- the checklist follows what the airline data says for MY passport ----
+{ const its = buildChecklist({ start: '2026-11-20', end: '2026-11-25', countries: ['JP', 'TH', 'FR'] }, { today: '2026-10-10', docs: [], rules: [], countryName: c => c,
+    entry: { JP: { verdict: 'eta_or_evisa', steps: ['Have a return or onward ticket'] }, TH: { verdict: 'visa_free', reason: 'India passport holders do not need a visa here' }, FR: { verdict: 'visa_required' } } });
+  const get = k => its.find(i => i.key === k);
+  assert.equal(get('visa:JP').status, 'todo'); assert.match(get('visa:JP').title, /Apply online for JP.* by 2026-11-06/); assert.equal(get('visa:TH').status, 'ok');
+  assert.equal(get('visa:FR').status, 'todo'); assert.match(get('visa:FR').title, /by 2026-10-21/); }
+console.log('entry-driven checklist OK');

@@ -127,3 +127,13 @@ def test_demo_data_is_explicit_and_removable(cli):
     assert cli.delete("/api/demo", headers=cli.h).get_json()["n"] == n
     live = [r for r in cli.get("/api/sync?since=").get_json()["records"] if not r["deleted_at"]]
     assert [r["data"]["title"] for r in live] == ["my real task"]
+
+
+def test_backup_download_is_a_zip_with_the_database_and_the_key_only_when_asked(cli):
+    import zipfile, io, sqlite3, tempfile
+    put(cli, "task", {"title": "Keep me"})
+    z = zipfile.ZipFile(io.BytesIO(cli.get("/api/backup/download").data)); assert z.namelist() == ["life.db"]
+    path = os.path.join(tempfile.mkdtemp(), "l.db"); open(path, "wb").write(z.read("life.db"))
+    assert sqlite3.connect(path).execute("SELECT COUNT(*) FROM records WHERE kind='task'").fetchone()[0] == 1   # a real, readable copy
+    assert sorted(zipfile.ZipFile(io.BytesIO(cli.get("/api/backup/download?key=1").data)).namelist()) == ["fernet.key", "life.db"]
+    import app; assert app.app.test_client().get("/api/backup/download").status_code == 401                         # only when signed in

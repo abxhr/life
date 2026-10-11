@@ -1,5 +1,5 @@
 // Tiny helpers shared by every module. No framework: h() builds DOM, text is never innerHTML'd.
-export const cfg = { tz: 'Asia/Dubai', name: 'Abshar', currency: 'AED', workDays: [1, 2, 3, 4, 5], workStart: '09:00', workEnd: '18:00', eveningFrom: '20:00' };
+export const cfg = { tz: 'Asia/Dubai', name: 'friend', currency: 'AED', workDays: [1, 2, 3, 4, 5], workStart: '09:00', workEnd: '18:00', eveningFrom: '20:00' };
 
 export function h(tag, attrs, ...kids) {
   const el = document.createElement(tag);

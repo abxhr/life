@@ -15,5 +15,6 @@ self.addEventListener('fetch', e => {
   const key = e.request.mode === 'navigate' ? '/' : u.pathname + (FILES.includes(u.pathname) ? '' : u.search);
   e.respondWith(caches.match(key).then(hit => hit || fetch(e.request).catch(() => caches.match('/'))));
 });
-self.addEventListener('push', e => { const d = e.data ? e.data.json() : {}; e.waitUntil(self.registration.showNotification(d.title || 'Life', { body: d.body || '', icon: '/static/icon-192.png', tag: d.tag, data: d })); });
-self.addEventListener('notificationclick', e => { e.notification.close(); e.waitUntil(clients.openWindow('/#/today')); });
+self.addEventListener('push', e => { const d = e.data ? e.data.json() : {}; e.waitUntil(self.registration.showNotification(d.title || 'Life', { body: d.body || '', icon: '/static/icon-192.png', badge: '/static/icon-192.png', tag: d.tag, data: d })); });
+self.addEventListener('notificationclick', e => { e.notification.close(); const url = (e.notification.data && e.notification.data.url) || '/#/today';   // open the page the notification is about
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => { const w = list.find(c => 'focus' in c); if (w) { if ('navigate' in w) w.navigate(url).catch(() => {}); return w.focus(); } return clients.openWindow(url); })); });

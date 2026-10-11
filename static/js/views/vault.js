@@ -9,7 +9,7 @@ import { stayCalc, tripFits, bridges, passportOkAt, DEFAULT_RULES, SCHENGEN } fr
 
 let tab = 'docs';
 const TABS = [['docs', 'Documents'], ['radar', 'Expiry radar'], ['visas', 'Visa applications'], ['stays', 'Stay counter'], ['leave', 'Leave & bridges']];
-export const DOC_TYPES = [['passport', 'Passport'], ['id', 'National ID'], ['residence', 'Residence visa / permit'], ['emirates_id', 'Emirates ID'], ['licence', 'Driving licence'], ['insurance', 'Travel insurance'], ['vaccination', 'Vaccination certificate'], ['evisa', 'e-Visa / authorisation (ETIAS, ESTA, eTA…)'], ['ff', 'Frequent-flyer number'], ['loyalty', 'Loyalty programme'], ['other', 'Other']];
+export const DOC_TYPES = [['passport', 'Passport'], ['id', 'National ID'], ['residence', 'Residence visa / permit'], ['visa', 'Visa (sticker or e-visa) for a country'], ['emirates_id', 'Emirates ID'], ['licence', 'Driving licence'], ['insurance', 'Travel insurance'], ['vaccination', 'Vaccination certificate'], ['evisa', 'e-Visa / authorisation (ETIAS, ESTA, eTA…)'], ['ff', 'Frequent-flyer number'], ['loyalty', 'Loyalty programme'], ['other', 'Other']];
 const ALERTS = [180, 90, 30, 7];
 
 function editDoc(id) {

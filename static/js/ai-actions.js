@@ -8,7 +8,7 @@ import { slotNow } from './mood.js';
 const fmtWhen = i => [i.due || i.date, i.due_time || i.time || i.start].filter(Boolean).join(' ');
 export function describe(name, i) {
   switch (name) {
-    case 'create_task': return `Create task “${i.title}”${fmtWhen(i) ? ' · ' + fmtWhen(i) : ''}${i.priority && i.priority < 3 ? ' · priority ' + i.priority : ''}`;
+    case 'create_task': return `Create task “${i.title}”${fmtWhen(i) ? ' · ' + fmtWhen(i) : ''}${i.priority && i.priority < 3 ? ' · priority ' + i.priority : ''}${i.project ? ' · ' + i.project : ''}`;
     case 'update_task': { const t = store.get(i.id); return `Update task “${t ? t.title : i.id}”: ${Object.entries(i).filter(([k]) => k !== 'id').map(([k, v]) => `${k} → ${v}`).join(', ')}`; }
     case 'complete_task': { const t = store.get(i.id); return `Mark “${t ? t.title : i.id}” done`; }
     case 'create_reminder': return `Remind you “${i.title}” · ${i.date} ${i.time || '09:00'}${i.critical ? ' (critical)' : ''}`;
@@ -29,7 +29,7 @@ export function apply(name, i) {
   try {
     switch (name) {
       case 'create_task': {
-        const t = saveTask({ title: i.title, due: i.due || null, due_time: i.due_time || null, priority: i.priority || 3, ctx: i.context || 'personal', notes: i.notes || '', tags: [], done: false, remind: i.due_time ? 'at' : 'none', source: 'assistant' });
+        const t = saveTask({ title: i.title, due: i.due || null, due_time: i.due_time || null, priority: i.priority || 3, ctx: i.context || 'personal', notes: i.notes || '', project: i.project || null, tags: [], done: false, remind: i.due_time ? 'at' : 'none', source: 'assistant' });
         created.push(t.id); return { ok: true, summary: `Created task “${i.title}”`, created, prev, completed, id: t.id };
       }
       case 'update_task': {
