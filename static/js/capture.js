@@ -6,6 +6,7 @@ import { parse } from './nlp.js';
 import { store } from './store.js';
 import { fromParsed, saveTask } from './tasks-core.js';
 import { state } from './state.js';
+import { micButton, canRecord } from './voice.js';
 
 const URLRE = /^https?:\/\/\S+$/i;
 
@@ -38,11 +39,22 @@ export function openCapture(prefill = '') {
     };
     inp.addEventListener('input', paint);
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(e.ctrlKey || e.metaKey); } });
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const mic = SR ? h('button', { class: 'btn icon', type: 'button', 'aria-label': 'Dictate', onclick: () => { const r = new SR(); r.lang = 'en-GB'; r.onresult = e => { inp.value = (inp.value + ' ' + e.results[0][0].transcript).trim(); paint(); }; r.onerror = () => toast('Couldn’t hear that'); r.start(); mic.classList.add('primary'); r.onend = () => mic.classList.remove('primary'); } }, icon('mic')) : '';
-    d.append(h('h2', {}, 'Capture'), inp, h('p', { class: 'faint small', style: { margin: '4px 0 0' } }, 'Dates, #tags, @places and !priority are picked up as you type.'), chips,
-      h('div', { class: 'actions' }, mic, h('span', { class: 'faint small grow kbd-hint' }, h('kbd', {}, 'Enter'), ' inbox · ', h('kbd', {}, 'Ctrl+Enter'), ' task'),
-        h('button', { class: 'btn', onclick: () => save(true) }, icon('tasks'), 'Make task'), h('button', { class: 'btn primary', onclick: () => save(false) }, icon('inbox'), 'To inbox')));
+    const mic = canRecord() ? micButton(t => { inp.value = (inp.value + ' ' + t).trim(); paint(); }) : '';
+    const tellAi = h('button', { class: 'btn', onclick: () => { const t = inp.value.trim(); close(true); import('./chat.js').then(m => m.openAssistant(null, t)); } }, icon('assistant'), 'Assistant');
+    const toLists = h('button', { class: 'btn', title: 'Paste a link or caption (Instagram, TikTok…): the place or film is filed into the right list', onclick: async e => {
+      const t = inp.value.trim(), b = e.currentTarget; if (!t) return inp.focus();
+      b.disabled = true; b.lastChild.textContent = 'Reading…';
+      try { const j = await store.api('/api/share-in', { method: 'POST', body: JSON.stringify({ text: t }) }); close(true); toast(j.message); store.sync(); }
+      catch { b.disabled = false; b.lastChild.textContent = 'To lists'; toast('Couldn’t reach the server — try again online'); }
+    } }, icon('lists'), 'To lists');
+    const pasteBtn = navigator.clipboard && navigator.clipboard.readText ? h('button', { class: 'btn icon', 'aria-label': 'Paste from clipboard', title: 'Paste', onclick: async () => {
+      try { const t = (await navigator.clipboard.readText()).trim(); if (!t) return toast('The clipboard is empty'); inp.value = t; paint(); inp.focus(); if (/https?:\/\//.test(t) || t.length > 80) toLists.classList.add('primary'); }
+      catch { toast('Allow pasting, or press and hold the box and tap Paste'); } } }, icon('copy')) : '';
+    inp.style.flex = '1'; inp.style.minWidth = '0';
+    d.append(h('h2', {}, 'Capture'), h('div', { class: 'row', style: { flexWrap: 'nowrap', alignItems: 'flex-end' } }, inp, pasteBtn, mic), h('p', { class: 'faint small', style: { margin: '4px 0 0' } }, 'Dates, #tags, @places and !priority are picked up as you type. Paste an Instagram link or caption and tap “To lists”.'), chips,
+      h('p', { class: 'faint small kbd-hint', style: { margin: '2px 0 0' } }, h('kbd', {}, 'Enter'), ' inbox · ', h('kbd', {}, 'Ctrl+Enter'), ' task'),
+      h('div', { class: 'actions cap-actions' },
+        tellAi, toLists, h('button', { class: 'btn', onclick: () => save(true) }, icon('tasks'), 'Make task'), h('button', { class: 'btn primary', onclick: () => save(false) }, icon('inbox'), 'To inbox')));
     paint();
   }, { label: 'Capture' });
 }

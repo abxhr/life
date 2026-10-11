@@ -57,6 +57,7 @@ async function countryPage(el, a2, ctx) {
   }
   R.append(h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'From home')), h('div', { class: 'stat-row' }, h('div', { class: 'stat' }, h('b', {}, '~' + flightHours(dist) + ' h'), h('span', {}, 'flight, rough')), h('div', { class: 'stat' }, h('b', {}, Math.round(dist).toLocaleString()), h('span', {}, 'km'))), h('p', { class: 'faint small', style: { margin: '8px 0 0' } }, 'Straight-line to the country’s centre; real routes vary.')));
   // visa helper
+  R.append(entryCard(a2));
   const rs = store.list('visa_rule', r => r.country === a2);
   const vh = h('section', { class: 'card', style: { '--dom': 'var(--d-travel)' } }, h('div', { class: 'card-head' }, h('h3', {}, 'Entry rules'), h('button', { class: 'btn sm', style: { marginLeft: 'auto' }, onclick: () => editRule(a2) }, icon('plus'), 'Add what I found')));
   if (!rs.length) vh.append(h('p', { class: 'muted', style: { margin: 0 } }, 'Nothing recorded yet. Look it up on the official government or embassy site, then note it here with the date.'));
@@ -66,6 +67,24 @@ async function countryPage(el, a2, ctx) {
   // linked list items
   const items = store.list('list_item', i => i.country === a2 || (i.tags || []).some(t => t.toLowerCase() === c.name.toLowerCase()));
   if (items.length) R.append(h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', {}, 'Things to do & eat')), items.map(i => h('a', { class: 'item', href: '#/lists/' + i.list, style: { textDecoration: 'none', color: 'inherit' } }, i.title))));
+}
+
+// "What should I do?" for my passport + residence, condensed from the airline's visa service (server: /api/visa)
+const VERDICT = { visa_free: ['No visa needed', 'good'], on_arrival: ['Visa on arrival', 'good'], eta_or_evisa: ['Apply online first', 'warn'], visa_required: ['Visa needed', 'bad'], unclear: ['Check the details', ''], held: ['You hold a visa', 'good'] };
+function entryCard(a2) {
+  const body = h('div', { class: 'stack-s' }, h('p', { class: 'muted small', style: { margin: 0 } }, 'Checking the rules for your passport…'));
+  const sec = h('section', { class: 'card', style: { '--dom': 'var(--d-travel)' } }, h('div', { class: 'card-head' }, h('h3', {}, 'Entry for you')), body);
+  store.api('/api/visa?to=' + a2.toLowerCase()).then(c => {
+    if (c.setup) return body.replaceChildren(h('p', { class: 'muted small', style: { margin: 0 } }, 'Pick your passport country and where you live in ', h('a', { href: '#/settings' }, 'Settings'), ' to see exactly what you need.'));
+    const [lab, cls] = VERDICT[c.verdict] || VERDICT.unclear;
+    body.replaceChildren(h('div', { class: 'row wrap' }, h('span', { class: 'chip ' + cls }, lab), h('b', { style: { fontWeight: 400 } }, c.headline)),
+      c.reason ? h('div', { class: 'small' }, h('b', { style: { fontWeight: 400 } }, 'Why: '), c.reason) : '',
+      ...(c.routes || []).map(r => h('div', { class: 'small muted', style: { borderLeft: '3px solid var(--rule)', paddingLeft: '8px' } }, (c.routes.length > 1 ? h('b', { style: { fontWeight: 400 } }, 'If ' + r.why + ': ') : ''), r.condition)),
+      c.steps && c.steps.length ? h('ol', { class: 'small', style: { margin: '4px 0 0', paddingLeft: '20px' } }, c.steps.map(x => h('li', {}, x))) : '',
+      c.passport ? h('div', { class: 'small' }, h('b', { style: { fontWeight: 400 } }, 'Passport: '), c.passport) : '', c.watch ? h('div', { class: 'small muted' }, c.watch) : '',
+      h('p', { class: 'faint small', style: { margin: '6px 0 0' } }, `${c.nationality.toUpperCase()} passport, living in ${c.residency.toUpperCase()} · airline data, checked ${c.checked} · `, h('a', { href: c.source, target: '_blank', rel: 'noopener noreferrer' }, 'full rules'), ' · confirm with the embassy before booking.'));
+  }).catch(() => body.replaceChildren(h('p', { class: 'muted small', style: { margin: 0 } }, navigator.onLine ? 'Couldn’t load the rules right now.' : 'Needs a connection.')));
+  return sec;
 }
 
 async function mapTab(box, ctx) {
@@ -111,7 +130,25 @@ async function citiesTab(box) {
   return () => map.remove();
 }
 
+// Every country sorted by what YOU need: passport + residence + the visas you hold (airline entry-rule data, checked in the background, cached a week)
+function explorer(box) {
+  const sec = h('section', { class: 'card', style: { '--dom': 'var(--d-travel)' } }, h('div', { class: 'card-head' }, h('h3', {}, 'Where my passport takes me')), h('div', { class: 'stack-s' })); const body = sec.lastChild; box.append(sec); let timer;
+  const GROUPS = [['go', 'No visa needed, or you hold what they accept', ['visa_free', 'held'], 'good'], ['eta', 'Apply online first', ['eta_or_evisa'], 'warn'], ['arr', 'Visa on arrival', ['on_arrival'], 'good'], ['emb', 'Visa from an embassy', ['visa_required'], 'bad'], ['unc', 'Check the details', ['unclear'], '']];
+  const paint = async () => {
+    let j; try { j = await store.api('/api/visa/all'); } catch { return body.replaceChildren(h('p', { class: 'muted small', style: { margin: 0 } }, 'Needs a connection.')); }
+    if (j.setup) return body.replaceChildren(h('p', { class: 'muted small', style: { margin: 0 } }, 'Pick your passport country and where you live in ', h('a', { href: '#/settings' }, 'Settings'), ' first.'));
+    const w = await world(), regionNames = (() => { try { return new Intl.DisplayNames(['en'], { type: 'region' }); } catch { return null; } })(), name = a2 => (w.byA2[a2.toUpperCase()] || {}).name || (regionNames && regionNames.of(a2.toUpperCase())) || a2.toUpperCase(), checked = Object.keys(j.cards).length;
+    const head = h('div', { class: 'row wrap' }, h('span', { class: 'muted small' }, `${checked} of ${j.total} countries checked for a ${name(j.nationality)} passport, living in ${name(j.residency)}.`),
+      j.running ? h('span', { class: 'chip' }, `Checking… ${j.done}/${j.total}`) : h('button', { class: 'btn sm', onclick: async () => { await store.api('/api/visa/all/refresh', { method: 'POST', body: '{}' }); toast('Checking every country in the background'); paint(); } }, icon('refresh'), checked > 2 ? 'Check again' : 'Check every country'));
+    const groups = GROUPS.map(([k, label, verdicts, cls]) => { const items = Object.entries(j.cards).filter(([, c]) => verdicts.includes(c.verdict)).sort((a, b) => name(a[0]).localeCompare(name(b[0]))); if (!items.length) return '';
+      return h('details', { class: 'setsec', open: k === 'go' || null }, h('summary', {}, h('span', { class: 'chip ' + cls }, items.length), ' ' + label), h('div', { class: 'row wrap', style: { marginTop: '8px' } }, items.map(([a2, c]) => w.byA2[a2.toUpperCase()] ? h('a', { class: 'chip', href: '#/travel/c/' + a2.toUpperCase(), title: c.reason || c.headline || '' }, name(a2)) : h('span', { class: 'chip', title: c.reason || c.headline || '' }, name(a2))))); });
+    body.replaceChildren(head, ...groups); clearTimeout(timer); if (j.running) timer = setTimeout(() => { if (sec.isConnected) paint(); }, 4000);
+  };
+  paint();
+}
+
 async function goTab(box) {
+  explorer(box);
   const w = await world(), pp = passports(), set = window.__settings || {}, wd = set.work_days || [1, 2, 3, 4, 5];
   const f = { from: addDays(today(), 30), to: addDays(today(), 37), budget: '', maxh: 8, passport: pp[0]?.nationality || '' };
   const out = h('div', { class: 'stack' });
@@ -127,7 +164,15 @@ async function goTab(box) {
   run();
 }
 
+// One-time import of countries already visited (AE = living). HK is drawn as part of CN and Vatican is too small for the 110m map.
+const SEED = 'EG KE MA AM AZ CN GE IN ID JP JO KZ MY OM SA SG TW TH UZ VN DE IT ME RS TR GB US'.split(' ');
+function seedVisited() {
+  try { if (localStorage.getItem('travel_seed_v1')) return; localStorage.setItem('travel_seed_v1', '1'); } catch { return; }
+  for (const a2 of [...SEED, 'AE']) if (!getCountry(a2)?.status || getCountry(a2).status === 'want') setStatus(a2, a2 === 'AE' ? 'lived' : 'been');
+}
+
 export default async function render(el, ctx) {
+  seedVisited();
   const [kind, id] = ctx.rest;
   if (kind === 'c') return countryPage(el, id, ctx);
   if (kind === 't') { const m = await import('./trip.js'); return m.default(el, ctx); }

@@ -24,7 +24,7 @@ def vapid(data_dir):
     return _vapid
 
 
-def send_all(raw_db, data_dir, title, body="", tag=None):
+def send_all(raw_db, data_dir, title, body="", tag=None, url=None):
     """Send to every subscribed device. Returns (delivered, last_error)."""
     from pywebpush import webpush, WebPushException
     v, _ = vapid(data_dir)
@@ -33,7 +33,7 @@ def send_all(raw_db, data_dir, title, body="", tag=None):
         for r in c.execute("SELECT id,data FROM records WHERE kind='push_sub' AND deleted_at IS NULL").fetchall():
             sub = json.loads(r["data"])["sub"]
             try:
-                webpush(subscription_info=sub, data=json.dumps({"title": title, "body": body, "tag": tag}), vapid_private_key=v, vapid_claims={"sub": "mailto:" + (os.environ.get("VAPID_SUBJECT") or "life@localhost.invalid")}, ttl=3600, timeout=8)
+                webpush(subscription_info=sub, data=json.dumps({"title": title, "body": body, "tag": tag, "url": url or "/#/today"}), vapid_private_key=v, vapid_claims={"sub": "mailto:" + (os.environ.get("VAPID_SUBJECT") or "life@localhost.invalid")}, ttl=3600, timeout=8)
                 n += 1
             except WebPushException as e:
                 code = getattr(getattr(e, "response", None), "status_code", None)

@@ -67,6 +67,7 @@ export function bridges(holidays, workDays, year, maxLeave = 5) {
 export function leaveNeeded(start, end, workDays, holidays) { let n = 0; for (let d = start; d <= end; d = addDays(d, 1)) if (workDays.includes(dow(d)) && !holidays.includes(d)) n++; return n; }
 
 // Pre-trip checklist, built from what we know about the destination(s). status: ok | todo | warn
+const ymdAdd = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 export function buildChecklist(trip, ctx) {
   const items = [], end = trip.end || trip.start, T = ctx.today;
   const add = (key, title, status = 'todo', note = '') => items.push({ key, title, status, note, done: status === 'ok' });
@@ -74,6 +75,16 @@ export function buildChecklist(trip, ctx) {
   if (!passports.length) add('passport', 'Passport valid 6+ months after you return', 'warn', 'No passport recorded in Documents yet.');
   else passports.forEach(p => { const r = passportOkAt(p.expiry, end); add('passport:' + p.id, `Passport ${p.nationality || ''} valid 6+ months after you return`, r.ok ? 'ok' : 'warn', r.ok ? `valid to ${p.expiry}` : `expires ${p.expiry} — needs ${r.validUntilNeeded}`); });
   for (const c of trip.countries || []) {
+    const held = ctx.docs.filter(d => d.type === 'visa' && (d.nationality || '').toUpperCase() === c);   // a visa you already hold for this country
+    if (held.length) { held.forEach(v => { const okV = !v.expiry || v.expiry >= end; add('visa:' + c + ':' + v.id, `Visa for ${ctx.countryName(c)}: you hold ${v.name || 'a visa'}`, okV ? 'ok' : 'warn', v.expiry ? (okV ? `valid to ${v.expiry}` : `expires ${v.expiry}, before you return`) : 'no end date recorded, check it covers your dates'); }); continue; }
+    const ec = ctx.entry && ctx.entry[c];   // what the airline data says for MY passport (Travel → country → "Entry for you")
+    if (ec && ec.verdict && ec.verdict !== 'unclear') {
+      const nm = ctx.countryName(c), by = trip.start ? ' by ' + ymdAdd(trip.start, ec.verdict === 'visa_required' ? -30 : -14) : '';
+      if (ec.verdict === 'visa_free' || ec.verdict === 'on_arrival') add('visa:' + c, `Visa for ${nm}: ${ec.verdict === 'on_arrival' ? 'issued on arrival' : 'nothing to apply for'}`, 'ok', ec.reason || '');
+      else if (ec.verdict === 'eta_or_evisa') add('visa:' + c, `Apply online for ${nm} (e-visa / authorisation)${by}`, 'todo', (ec.steps || []).join(' · '));
+      else if (ec.verdict === 'visa_required') add('visa:' + c, `Get a visa for ${nm} from the embassy${by}`, 'todo', 'Embassy visas can take weeks.');
+      continue;
+    }
     const rules = ctx.rules.filter(r => r.country === c);
     if (!rules.length) add('visa:' + c, `Visa: check entry rules for ${ctx.countryName(c)}`, 'todo', 'Record what you find on the official government site.');
     rules.forEach(r => { const stale = visaStale(r.verified_on, T); add('visa:' + c + r.passport, `Visa (${r.passport || 'passport'}) → ${ctx.countryName(c)}: ${r.status}`, ['visa-free'].includes(r.status) && !stale ? 'ok' : 'todo', stale ? 'rule last verified long ago — re-check the official source' : ''); });

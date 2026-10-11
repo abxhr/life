@@ -8,7 +8,7 @@ export const BUILTIN = {
   eat: { name: 'Things to eat', icon: 'dish', statuses: ['want to try', 'tried'], fields: [T('cuisine', 'Cuisine'), T('where', 'Where to get it'), T('rating', 'Rating', 'rating')] },
   restaurant: { name: 'Restaurants', icon: 'dish', map: true, statuses: ['want to go', 'been, loved', 'been, meh'], fields: [T('cuisine', 'Cuisine'), T('city', 'City / area'), S('price', 'Price', ['$', '$$', '$$$', '$$$$']), T('with', 'Who with'), T('occasion', 'Occasion'), T('source', 'Who recommended'), T('url', 'Website / maps link', 'url'), T('phone', 'Phone'), T('rating', 'Rating', 'rating')] },
   play: { name: 'Places to play', icon: 'ball', map: true, statuses: ['want to try', 'been', 'regular'], fields: [{ k: 'activity', label: 'Activity', type: 'activity' }, T('venue', 'Venue'), T('area', 'Area'), T('price', 'Price'), T('best_time', 'Best time'), T('with', 'Who with'), T('url', 'Booking link', 'url'), T('phone', 'Phone'), T('rating', 'Rating', 'rating')] },
-  media: { name: 'Watch, read, listen', icon: 'book', statuses: ['to try', 'in progress', 'finished'], fields: [S('medium', 'Type', ['movie', 'show', 'book', 'podcast', 'music', 'game']), T('creator', 'By'), T('source', 'Who recommended'), T('rating', 'Rating', 'rating')] },
+  media: { name: 'Watch, read, listen', icon: 'book', statuses: ['to try', 'in progress', 'finished'], fields: [S('medium', 'Type', ['movie', 'show', 'book', 'podcast', 'music', 'game']), T('creator', 'By'), T('year', 'Year'), T('genre', 'Genre'), T('language', 'Language'), T('cast', 'Cast'), T('imdb', 'IMDb rating'), T('source', 'Who recommended'), T('rating', 'Rating', 'rating')] },
   gift: { name: 'Gift ideas', icon: 'heart', statuses: ['idea', 'bought', 'given'], fields: [T('person', 'For'), T('price', 'Price', 'number'), T('url', 'Link', 'url'), T('occasion', 'Occasion')] },
   wishlist: { name: 'Wishlist', icon: 'star', statuses: ['wanted', 'bought'], fields: [T('price', 'Price', 'number'), T('target', 'Buy when below', 'number'), T('store', 'Store'), T('url', 'Link', 'url')] },
   grocery: { name: 'Grocery', icon: 'lists', statuses: ['need', 'got'], grouped: 'aisle', fields: [S('aisle', 'Aisle', ['produce', 'dairy', 'meat & fish', 'bakery', 'pantry', 'frozen', 'drinks', 'household', 'other']), T('qty', 'Qty')] },
@@ -18,6 +18,7 @@ export const BUILTIN = {
   ideas: { name: 'Ideas', icon: 'zap', statuses: ['spark', 'exploring', 'parked', 'done'], fields: [] },
 };
 export const types = () => { const o = { ...BUILTIN }; store.list('list_type').forEach(t => o[t.id] = { name: t.name, icon: 'lists', statuses: t.statuses || ['open', 'done'], fields: t.fields || [], custom: true }); return o; };
+export { normTitle, sameItem } from './dedupe.js';
 export const doneStatus = ty => ty.statuses[ty.statuses.length - 1];
 export const isDone = (it, ty) => it.status === doneStatus(ty) || (it.status || '').startsWith('been') || it.status === 'tried';
 export function toMarkdown(list, items, ty) {

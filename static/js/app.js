@@ -6,6 +6,7 @@ import { modal, toast, empty } from './ui.js';
 import { state, applyTheme, inMode } from './state.js';
 import { openCapture } from './capture.js';
 import { expenseDialog } from './expense.js';
+import { unlockWithPasskey, passkeysSupported } from './webauthn.js';
 
 applyTheme();
 const root = $('#app');
@@ -27,20 +28,57 @@ async function boot() {
   let me, net = true;
   try { me = await (await fetch('/api/me', { credentials: 'same-origin' })).json(); } catch { net = false; me = { authed: false }; }
   if (!net && lsGet('life_authed') === '1') { // offline: open straight from the on-device copy (the service worker served this page)
+    if (lockExpired()) return lockScreen({ offline: true });
     try { window.__settings = JSON.parse(lsGet('life_settings') || '{}'); applySettings(window.__settings); } catch { /* defaults */ }
     await store.init(); authed = true; shell(); route(); import('./reminders-ui.js').then(m => m.startReminderWatcher()); import('./automations.js').then(m => m.startAutomations()); registerSW(); return;
   }
-  if (!me.authed) { lsSet('life_authed', ''); return loginScreen(net ? me : { ...me, offline: true }); }
-  store.setCsrf(me.csrf); lsSet('life_authed', '1');
+  if (!me.authed) { if (!me.locked) lsSet('life_authed', ''); return me.faceid ? lockScreen(net ? me : { ...me, offline: true }) : loginScreen(net ? me : { ...me, offline: true }); }
+  store.setCsrf(me.csrf); lsSet('life_authed', '1'); lsSet('life_lock', JSON.stringify({ on: !!me.faceid, min: me.lock_minutes || 0, seen: Date.now() })); watchLock(me);
   try { const s = await store.api('/api/settings'); window.__settings = s; applySettings(s); lsSet('life_settings', JSON.stringify(s)); } catch { try { window.__settings = JSON.parse(lsGet('life_settings') || '{}'); applySettings(window.__settings); } catch { /* defaults */ } }
   await store.init(); authed = true;
   shell(); route(); store.sync();
   import('./reminders-ui.js').then(m => m.startReminderWatcher()); import('./automations.js').then(m => m.startAutomations());
-  registerSW();
+  registerSW(); installNudge(); pullToRefresh();
+}
+function pullToRefresh() {   // iPhone: pull the page down from the top to sync now (the native bounce is off, so this replaces it)
+  if (!('ontouchstart' in window)) return;
+  const bar = h('div', { class: 'ptr', 'aria-hidden': 'true' }, icon('refresh')); document.body.append(bar); let y0 = null, pulled = 0;
+  addEventListener('touchstart', e => { y0 = scrollY <= 0 && e.touches.length === 1 && !document.querySelector('.scrim') && !e.target.closest('.chat-list, .cal-scroll, .map, textarea, .dialog') ? e.touches[0].clientY : null; pulled = 0; }, { passive: true });
+  addEventListener('touchmove', e => { if (y0 == null) return; pulled = e.touches[0].clientY - y0; if (pulled > 0) { bar.style.transform = `translate(-50%, ${Math.min(pulled * .5, 70)}px)`; bar.style.opacity = Math.min(pulled / 110, 1); bar.classList.toggle('go', pulled > 110); } }, { passive: true });
+  addEventListener('touchend', async () => { const go = y0 != null && pulled > 110; y0 = null; if (go) { bar.classList.add('spin'); await store.sync(); toast('Up to date'); } bar.style.transform = ''; bar.style.opacity = 0; bar.classList.remove('go', 'spin'); });
+}
+function installNudge() {   // iPhone in Safari (not the installed app): say once how to install; notifications and Face ID need it
+  const ios = /iPhone|iPad/.test(navigator.userAgent), standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+  if (!ios || standalone || lsGet('life_nudge')) return;
+  const box = h('div', { class: 'card taped', role: 'status', style: { position: 'fixed', left: '12px', right: '12px', bottom: 'calc(var(--tabh, 58px) + 18px + env(safe-area-inset-bottom))', zIndex: 40, padding: '14px 16px' } },
+    h('b', { style: { fontWeight: 400 } }, 'Make it an app'), h('p', { class: 'small', style: { margin: '4px 0 8px' } }, 'Tap the Share button, then “Add to Home Screen”. You get full screen, notifications and Face ID.'),
+    h('button', { class: 'btn sm', onclick: () => { lsSet('life_nudge', '1'); box.remove(); } }, 'Got it'));
+  document.body.append(box);
 }
 const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 const applySettings = s => Object.assign(cfg, { tz: s.timezone || cfg.tz, name: s.name || cfg.name, currency: s.currency || cfg.currency, workDays: s.work_days || cfg.workDays, workStart: s.work_start || cfg.workStart, workEnd: s.work_end || cfg.workEnd, eveningFrom: s.evening_from || cfg.eveningFrom });
+
+// ---------------- Face ID lock ----------------
+const lockCfg = () => { try { return JSON.parse(lsGet('life_lock') || 'null'); } catch { return null; } };
+const lockExpired = () => { const l = lockCfg(); return !!(l && l.on && Date.now() - l.seen > l.min * 60000 + (l.min === 0 ? 10000 : 0)); };
+function watchLock(me) {   // keep "last seen" fresh while the app is in use; coming back after the lock time, ask the server and show the lock screen
+  if (!me.faceid) return;
+  const touch = () => { const l = lockCfg(); if (l && !document.hidden) { l.seen = Date.now(); lsSet('life_lock', JSON.stringify(l)); } };
+  ['pointerdown', 'keydown', 'scroll'].forEach(ev => addEventListener(ev, debounce(touch, 4000), { passive: true, capture: true })); setInterval(touch, 15000);
+  document.addEventListener('visibilitychange', async () => {
+    if (document.hidden) { if (!me.lock_minutes) navigator.sendBeacon('/api/lock'); return; }   // "lock as soon as I leave": tell the server now
+    if (lockExpired() || !me.lock_minutes) { try { const m = await (await fetch('/api/me', { credentials: 'same-origin' })).json(); if (!m.authed) location.reload(); else touch(); } catch { if (lockExpired()) location.reload(); } }
+  });
+}
+function lockScreen(me) {
+  const err = h('p', { class: 'bad small', role: 'alert' }), local = ['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname);
+  const unlock = async () => { err.textContent = ''; try { await unlockWithPasskey(); location.reload(); } catch (e) { err.textContent = e.name === 'NotAllowedError' ? 'Face ID was cancelled. Tap to try again.' : (e.message || 'Couldn’t unlock.'); } };
+  root.replaceChildren(h('div', { style: { minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: '16px' } }, h('div', { class: 'card taped', style: { width: 'min(420px,100%)', padding: '32px 28px', textAlign: 'center' } },
+    h('h1', { class: 'hero-line' }, 'Life'), h('p', { class: 'muted' }, me.offline ? 'Locked. Connect to the internet to unlock.' : 'Locked.'),
+    h('button', { class: 'btn primary', style: { minHeight: '56px', width: '100%', fontSize: '1.2rem', justifyContent: 'center' }, disabled: (me.offline || !passkeysSupported()) || null, onclick: unlock }, icon('lock'), 'Unlock with Face ID'), err,
+    local ? h('p', { class: 'small', style: { marginTop: '18px' } }, h('a', { href: '#', onclick: e => { e.preventDefault(); loginScreen({ ...me, offline: false }); } }, 'Use the password (this computer only)')) : '')));
+}
 
 function loginScreen(me) {
   const err = h('p', { class: 'bad small', role: 'alert' }), pw = h('input', { class: 'in', type: 'password', autocomplete: me.setup ? 'new-password' : 'current-password', 'aria-label': 'Password', autofocus: true });
@@ -92,18 +130,23 @@ function paintQuick() { const box = $('#quick'); if (!box) return; const f = fav
   r.length ? h('div', { class: 'qh' }, 'Recent') : '', ...r.map(x => h('a', { href: x.href, class: 'q' }, icon('clock', 'mini'), h('span', {}, x.label)))); }
 const paintMode = () => document.querySelectorAll('.mode-sw button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.m === state.mode)));
 
-function onData() {
+let drawn = -1, lastScroll = 0;   // store revision on screen; last time the user was scrolling
+addEventListener('scroll', () => { lastScroll = Date.now(); }, { passive: true, capture: true });
+function onData(force) {
   paintQuick();
   const n = store.list('inbox').filter(inMode).length, b = $('#inbox-n'); if (b) { b.textContent = n; b.classList.toggle('hide', !n); }
   const mt = document.querySelector('.tabbar a[data-id="more"]'); if (mt) { let bd = mt.querySelector('.tb-badge'); if (n && !bd) { bd = h('i', { class: 'tb-badge' }); mt.append(bd); } if (bd) { bd.textContent = n; bd.classList.toggle('hide', !n); } }
   const st = store.status(), p = $('#sync-pill'); if (p) p.textContent = !navigator.onLine ? 'offline · ' + st.pending + ' waiting' : st.pending ? st.pending + ' change' + (st.pending > 1 ? 's' : '') + ' waiting' : st.lastErr ? 'sync paused' : 'saved';
-  const a = document.activeElement, typing = a && pageEl && pageEl.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
+  if (force !== true && store.rev() === drawn) return;   // sync start/finish or an echo of our own save: nothing new to show, so leave the page (and the user's scroll) alone
+  if (Date.now() - lastScroll < 400) { setTimeout(onData, 450); return; }   // never swap the DOM out from under a swipe
+  const a = document.activeElement, typing = a && pageEl && pageEl.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !/^(checkbox|radio|button)$/.test(a.type);   // ticking a box doesn't open a keyboard, so it must not block the redraw
   if (typing && !a.classList.contains('cap-input') && !a.dataset.live) return; // never yank the keyboard (quick-add boxes are the exception: they re-render and keep focus)
   if (document.querySelector('.scrim') || document.querySelector('.actmenu[open]')) return;   // never re-render under an open dialog or menu
   const lbl = typing && a.getAttribute('aria-label');
   render(true).then(() => { if (lbl) { const n = pageEl.querySelector(`[aria-label="${lbl}"]`); n && n.focus(); } });
 }
-window.addEventListener('online', onData); window.addEventListener('offline', onData);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) onData(true); });   // coming back to the app: refresh once
+window.addEventListener('online', () => onData(true)); window.addEventListener('offline', () => onData(true));
 
 // ---------------- router ----------------
 export function go(path) { location.hash = '#/' + path.replace(/^#?\/?/, ''); }
@@ -112,7 +155,7 @@ async function route() { await render(false); }
 let token = 0;
 async function render(soft) {
   if (!authed || !pageEl) return;
-  const { name, rest, q } = parseHash(); const my = ++token;
+  const { name, rest, q } = parseHash(); const my = ++token; drawn = store.rev();
   if (name === 'capture') { history.replaceState(null, '', '#/today'); openCapture([q.title, q.text, q.url].filter(Boolean).join(' ')); return render(false); }
   document.querySelectorAll('[data-id]').forEach(a => a.removeAttribute('aria-current'));
   document.querySelectorAll(`[data-id="${name}"]`).forEach(a => a.setAttribute('aria-current', 'page'));
@@ -198,3 +241,11 @@ function registerSW() {
 }
 
 boot();
+
+// iOS home-screen apps don't shrink the layout for the keyboard: publish its height so sheets can sit above it.
+if (window.visualViewport) { // on-screen keyboard height -> --kb. Only while a field is focused: iOS can leave a stale value after a dropdown/keyboard closes, which squashed sheets and blocked scrolling
+  const vv = visualViewport, root = document.documentElement, field = () => { const a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
+  const setKb = () => { const kb = field() ? Math.round(innerHeight - vv.height - vv.offsetTop) : 0; root.style.setProperty('--kb', (kb > 80 ? kb : 0) + 'px'); };
+  vv.addEventListener('resize', setKb); vv.addEventListener('scroll', setKb);
+  addEventListener('focusin', setKb); addEventListener('focusout', () => setTimeout(setKb, 250)); addEventListener('pageshow', setKb);
+}

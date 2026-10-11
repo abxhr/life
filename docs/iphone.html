@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iPhone guide · Life</title><meta name="description" content="Install Life on your iPhone and set up notifications, Face ID, sharing, Calendar and Siri."><meta name="theme-color" content="#25304b">
+<link rel="icon" href="assets/icon.png"><link rel="stylesheet" href="assets/site.css"></head>
+<body><header class="top"><div class="in"><a class="brand" href="index.html"><img src="assets/icon.png" alt="">Life</a><nav aria-label="Main"><a href="index.html">Home</a><a href="features.html">Features</a><a href="iphone.html" aria-current="page">iPhone</a><a href="setup.html">Set up</a><a href="security.html">Security</a></nav></div></header>
+<main class="wrap">
+<h1>iPhone guide</h1>
+<p>Life is a web app, so on iPhone you <b>install it from Safari</b>. Everything below also lives in <b>Settings → Use it on your iPhone</b>, with the exact values to copy.</p>
+<div class="note"><p><b>You need</b> Life reachable over HTTPS from your phone, for example with Tailscale (see <a href="setup.html">Set up</a>). iOS only allows notifications and Face ID for HTTPS sites.</p></div>
+<h2>1 · Install it</h2>
+<ol class="steps"><li>Open your Life address in <b>Safari</b> and sign in.</li><li>Tap <b>Share → Add to Home Screen</b>, then open Life from the new icon. It runs full screen, with its own launch screen.</li></ol>
+<h2>2 · Notifications</h2>
+<ol class="steps"><li>In the installed app: <b>Settings → Phone notifications → Turn on for this device</b>, and allow notifications.</li><li>Tap <b>Send a test</b>. Choose what to hear about (reminders, morning brief, trips, expiries, problems).</li></ol>
+<h2>3 · Face ID</h2>
+<ol class="steps"><li><b>Settings → Face ID → Set up Face ID on this device</b>. The key stays in your iPhone's Keychain.</li><li>Switch on <b>Only open Life with Face ID</b> and pick when it locks again.</li></ol>
+<div class="note"><p>Keep a way back in: once Face ID is required, the password works only from the computer Life runs on.</p></div>
+<h2>4 · Share into Life (Instagram, links, screenshots)</h2>
+<ol class="steps">
+<li><b>Settings → Use it on your iPhone → Set up the "Save to Life" Shortcut</b>. It creates a token and shows the values.</li>
+<li>In the <b>Shortcuts</b> app: <b>+</b> → name it <i>Save to Life</i> → ⓘ → <b>Show in Share Sheet</b> (URLs, Text, Images).</li>
+<li>Add <b>Get Contents of URL</b>: URL as shown, method <b>POST</b>, header <code>Authorization</code> = the value shown, Request Body <b>Form</b>: <code>text</code> = Shortcut Input (and <code>images</code> = Shortcut Input to share screenshots).</li>
+<li>Add <b>Get Dictionary Value</b> (key <code>message</code>) then <b>Show Notification</b>.</li>
+<li>In Instagram: paper plane → <b>Share to…</b> → <b>Save to Life</b>. Tap <b>Test this token</b> in Life if anything is off.</li></ol>
+<p class="note good"><b>Tip:</b> if Instagram hides a caption, Life still reads the slides. If nothing can be read it goes to your Inbox.</p>
+<h2>5 · Calendar</h2>
+<p><b>Settings → Use it on your iPhone → Create my calendar link → Subscribe in Calendar</b>. Tasks with dates, events, reminders, trips, birthdays and passport/visa expiries appear and stay up to date. <b>Reset link</b> cuts off an old link.</p>
+<h2>6 · Siri: "what's my day?"</h2>
+<ol class="steps"><li>Shortcuts → <b>+</b> → <b>Get Contents of URL</b> (the link under step 5 in Settings) → <b>Speak Text</b>.</li><li>Name it <i>What's my day</i> and say it to Siri, or add it as a Lock Screen or Home Screen widget.</li></ol>
+<h2>What iOS does not allow</h2>
+<p>A web app cannot have native Home Screen widgets or appear in Siri without a Shortcut. The Calendar feed and the Shortcuts above are the closest equivalents.</p>
+
+<footer>Life is a private, single-user app that runs on your own computer. This site was built from the project's own docs and sample data: no real personal data appears in any screenshot.</footer></main></body></html>

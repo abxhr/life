@@ -2,7 +2,7 @@
 import { h, today, addDays, niceDate, fmtTime, uid, cfg } from '../util.js';
 import { icon } from '../icons.js';
 import { store } from '../store.js';
-import { modal, toast, empty, seg, field, confirmBox, menu } from '../ui.js';
+import { modal, toast, empty, seg, field, confirmBox, menu, swipeRow } from '../ui.js';
 import { inMode, state } from '../state.js';
 import { parse } from '../nlp.js';
 import { recLabel } from '../nlp.js';
@@ -33,7 +33,7 @@ export function taskRow(t, { onChange, showCtx } = {}) {
     ondragstart: e => { e.dataTransfer.setData('text/task', t.id); e.dataTransfer.effectAllowed = 'move'; }, onclick: e => { if (e.target === cb) return; selId = t.id; editTask(t.id); } },
     cb, h('div', { class: 'grow' }, h('span', { class: 't' }, t.title), meta));
   if (domOf(t)) row.style.boxShadow = `inset 3px 0 0 ${domOf(t)}`, row.style.paddingLeft = '8px';
-  return row;
+  return swipeRow(row, { right: t.done ? null : { label: 'Done', run: () => cb.click() }, left: { label: 'Delete', run: () => { store.del(t.id); toast('Deleted', () => store.restore(t.id)); } } });
 }
 
 export function editTask(id, defaults = {}) {

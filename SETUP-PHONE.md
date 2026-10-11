@@ -16,9 +16,24 @@ Goal: open Life on your phone over HTTPS, install it as an app, and get push not
 6. **Install it**
    * **iPhone (Safari):** Share → *Add to Home Screen*. Push notifications on iOS only work for apps installed this way.
    * **Android (Chrome):** menu → *Install app*.
-7. In the app: **Settings → Reminders → Enable push on this device → Test push.**
-   Also set up Telegram ([SETUP-TELEGRAM.md](SETUP-TELEGRAM.md)); it is the most reliable channel and the default for critical reminders.
-8. Share-sheet capture: on **Android**, once installed, "Share" a link or text from any app and choose **Life**. iOS does not support web share targets, so on iPhone use the Telegram bot (send it a link or text) or the capture button inside Life.
+7. In the app: **Settings → Phone notifications → Turn on for this device → Send a test.** Also set up Telegram ([SETUP-TELEGRAM.md](SETUP-TELEGRAM.md)); it is the most reliable channel and the default for critical reminders.
+8. **Face ID:** Settings → **Face ID** → *Set up Face ID on this device*, then switch on *Only open Life with Face ID* (the password then works only from the computer Life runs on).
+9. Share-sheet capture: on **Android**, once installed, "Share" a link or text from any app and choose **Life** (it opens the capture sheet; tap **To lists**). iOS does not support web share targets, so on iPhone use the Shortcut below.
+
+> **Shortcut:** Settings → **Use it on your iPhone** does steps 1 and 3 below for you (it creates the token and shows the exact values to paste, with a *Test this token* button). It also creates your **Calendar feed** and the **"what's my day?"** link for Siri.
+
+### iPhone: share an Instagram post, a web page or a screenshot straight into your lists
+Share a post (a cafe, restaurant, film, book…) and Life reads the caption **and every slide**, pulls out the name, area, what to order, and files it in the matching list (Restaurants, Cafes, Movies to watch, Series to watch…; created if you don't have them). Several places in one post become several items, and anything already in a list is skipped. Anything it can't recognise lands in your Inbox, so nothing is lost.
+
+1. In Life: **Settings → Use it on your iPhone → Set up the "Save to Life" Shortcut** (a token is made and shown once).
+2. iPhone **Shortcuts** app → **+** → name it `Save to Life`. Tap **ⓘ** → turn on **Show in Share Sheet** → *Share Sheet Types*: **URLs**, **Text**, **Images**.
+3. Add the action **Get Contents of URL**:
+   * URL: `https://your-pc.your-tailnet.ts.net/api/share-in`
+   * Show More → Method **POST**, Headers: `Authorization` = `Bearer <your token>`, Request Body **Form**: field `text` (Text) = *Shortcut Input*; and, to share screenshots or photos, field `images` (File) = *Shortcut Input*.
+4. Add **Get Dictionary Value** (key `message`) → **Show Notification**.
+5. In Instagram tap the paper-plane on a post → **Share to…** (bottom of the sheet) → scroll the row → **Save to Life** (use *Edit Actions* to pin it).
+
+Notes: Instagram only shows captions to link-preview bots and sometimes hides them; if the notification says it went to the Inbox, copy the caption in Instagram, open Life's capture sheet, paste the link and caption together, and tap **To lists**. The caption text is sent to your configured AI provider (numbers like card/phone digits are scrubbed first) and counts toward the monthly AI cap. Text inside photos/videos is not read.
 
 Keep the PC awake (Settings → Power) or run Life as a Windows service (NSSM). Autostart is yours to decide; nothing here changes the PC's security settings for you.
 

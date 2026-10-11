@@ -17,13 +17,16 @@ const all = store => new Promise(res => { try { const q = idb.transaction(store)
 
 const flat = r => ({ ...r.data, id: r.id, kind: r.kind, created_at: r.created_at, updated_at: r.updated_at, deleted_at: r.deleted_at });
 const notify = () => subs.forEach(f => { try { f(); } catch (e) { console.error(e); } });
+let rev = 0;   // bumps only when records change (not on sync start/finish), so views re-draw only when there is something new to show
+const bump = () => { rev++; notify(); };
 
 export const store = {
   setCsrf(t) { csrf = t; },
+  rev: () => rev,
   subscribe(f) { subs.add(f); return () => subs.delete(f); },
   addHook(f) { hooks.add(f); return () => hooks.delete(f); },          // f(kind, record, changedFields, previousData) after every local write (automations)
   trashed() { const skip = new Set(['note_version', 'done_log', 'habit_log', 'assistant_action', 'assistant_conversation', 'briefing', 'srs_card', 'suggest_fb', 'push_sub']); return [...recs.values()].filter(r => r.deleted_at && !skip.has(r.kind)).map(flat).sort((a, b) => b.deleted_at.localeCompare(a.deleted_at)); },
-  forget(ids) { ids.forEach(id => { recs.delete(id); outbox.delete(id); if (idb) { tx('records', 'readwrite', s => s.delete(id)); tx('outbox', 'readwrite', s => s.delete(id)); } }); notify(); },
+  forget(ids) { ids.forEach(id => { recs.delete(id); outbox.delete(id); if (idb) { tx('records', 'readwrite', s => s.delete(id)); tx('outbox', 'readwrite', s => s.delete(id)); } }); bump(); },
   async init() {
     try { idb = await open(); } catch { idb = null; }
     if (idb) {
@@ -31,7 +34,7 @@ export const store = {
       for (const o of await all('outbox')) outbox.set(o.id, o);
       since = await new Promise(res => { try { const q = idb.transaction('meta').objectStore('meta').get('since'); q.onsuccess = () => res(q.result || ''); q.onerror = () => res(''); } catch { res(''); } });
     }
-    notify();
+    bump();
   },
   pending: () => outbox.size,
   status: () => ({ pending: outbox.size, lastSync, lastErr, syncing }),
@@ -56,13 +59,13 @@ export const store = {
     const rec = { id, kind, data, created_at: cur ? cur.created_at : t, updated_at: t, deleted_at: cur ? cur.deleted_at : null };
     recs.set(id, rec);
     this._queue(id, kind, delta, rec);
-    notify();
+    bump();
     const changed = Object.keys(delta).filter(k => k !== '_t');
     if (changed.length) hooks.forEach(f => { try { f(kind, flat(rec), changed, cur ? cur.data : {}); } catch (e) { console.error(e); } });
     return flat(rec);
   },
-  del(id) { const r = recs.get(id); if (!r) return; r.deleted_at = nowIso(); r.updated_at = r.deleted_at; this._queue(id, r.kind, { _t: {} }, r, true); notify(); },
-  restore(id) { const r = recs.get(id); if (!r) return; r.deleted_at = null; r.updated_at = nowIso(); this._queue(id, r.kind, { _t: {} }, r, true); notify(); },
+  del(id) { const r = recs.get(id); if (!r) return; r.deleted_at = nowIso(); r.updated_at = r.deleted_at; this._queue(id, r.kind, { _t: {} }, r, true); bump(); },
+  restore(id) { const r = recs.get(id); if (!r) return; r.deleted_at = null; r.updated_at = nowIso(); this._queue(id, r.kind, { _t: {} }, r, true); bump(); },
   _queue(id, kind, delta, rec, withDel) {
     const o = outbox.get(id) || { id, kind, data: { _t: {} }, created_at: rec.created_at };
     Object.assign(o.data, delta, { _t: { ...o.data._t, ...delta._t } });
@@ -110,17 +113,19 @@ export const store = {
     if (outbox.size && !lastErr) this.syncSoon();
   },
   _absorb(list) {
+    let diff = false; const sig = x => x ? JSON.stringify([x.deleted_at, Object.entries(x.data || {}).filter(([k]) => k !== '_t').sort(([a], [b]) => a < b ? -1 : 1)]) : '';   // the server echoing our own save back is not news
     for (const r of list) {
       const pend = outbox.get(r.id);
       let rec = { id: r.id, kind: r.kind, data: r.data, created_at: r.created_at, updated_at: r.updated_at, deleted_at: r.deleted_at };
       if (pend) { // keep unsynced local edits on top of the server copy
         rec.data = { ...r.data, ...Object.fromEntries(Object.keys(pend.data).filter(k => k !== '_t').map(k => [k, pend.data[k]])) };
-        if (pend.deleted_at) rec.deleted_at = pend.deleted_at;
+        if ('deleted_at' in pend) rec.deleted_at = pend.deleted_at;   // a pending delete AND a pending restore (Undo) both win over the server's older copy
       }
+      if (sig(recs.get(r.id)) !== sig(rec)) diff = true;
       recs.set(r.id, rec);
       if (idb) tx('records', 'readwrite', s => s.put(rec));
     }
-    if (list.length) notify();
+    if (diff) bump();
   },
   async wipeLocal() { recs.clear(); outbox.clear(); since = ''; if (idb) { await tx('records', 'readwrite', s => s.clear()); await tx('outbox', 'readwrite', s => s.clear()); await tx('meta', 'readwrite', s => s.clear()); } },
 };

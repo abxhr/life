@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 import requests
 from flask import request, jsonify
 
-INTEGRATIONS = ["scheduler", "calendar_feeds", "telegram", "web_push", "weather", "fx", "garmin", "gmail", "wealth", "ai", "backup"]
+INTEGRATIONS = ["scheduler", "calendar_feeds", "telegram", "web_push", "weather", "fx", "garmin", "gmail", "wealth", "ai", "backup", "enrich", "entry_rules"]
 _last = {}
 
 
@@ -53,23 +53,12 @@ def register(app, login_required, db, raw_db, set_state, kv_get, kv_set, setting
     @app.get("/api/linkmeta")
     @login_required
     def linkmeta():
-        url = request.args.get("url", "")
         try:
-            for _ in range(4):
-                if not public_url(url):
-                    return jsonify(error="blocked"), 400
-                r = requests.get(url, timeout=6, stream=True, allow_redirects=False, headers={"User-Agent": "Mozilla/5.0 Life"})
-                if r.is_redirect:
-                    url = requests.compat.urljoin(url, r.headers.get("Location", ""))
-                    continue
-                html = r.raw.read(400_000, decode_content=True).decode("utf8", "ignore")
-                t = re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I)
-                d = re.search(r"""<meta[^>]+(?:name|property)=["'](?:og:)?description["'][^>]+content=["']([^"']*)""", html, re.I)
-                import html as H
-                return jsonify(title=H.unescape(t.group(1)).strip()[:200] if t else "", desc=H.unescape(d.group(1))[:300] if d else "")
+            return jsonify(**fetch_meta(request.args.get("url", "")))
+        except ValueError:
+            return jsonify(error="blocked"), 400
         except Exception as e:
             return jsonify(error=str(e)[:100]), 502
-        return jsonify(error="too many redirects"), 502
 
     # ----- weather -----
     @app.get("/api/weather")
@@ -98,6 +87,77 @@ def register(app, login_required, db, raw_db, set_state, kv_get, kv_set, setting
         extras.register(app, login_required, db, raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert, audit)
     except ImportError:
         pass
+
+
+def fetch_meta(url, desc_max=300, ua="Mozilla/5.0 Life"):
+    """Title + description of a public page (SSRF-safe: public IPs only, redirects re-checked). Raises ValueError if blocked."""
+    import html as H
+    for _ in range(4):
+        if not public_url(url):
+            raise ValueError("blocked")
+        r = requests.get(url, timeout=6, stream=True, allow_redirects=False, headers={"User-Agent": ua})
+        if r.is_redirect:
+            url = requests.compat.urljoin(url, r.headers.get("Location", ""))
+            continue
+        html = r.raw.read(400_000, decode_content=True).decode("utf8", "ignore")
+        t = re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I)
+        d = re.search(r"""<meta[^>]+(?:name|property)=["'](?:og:)?description["'][^>]+content=["']([^"']*)""", html, re.I)
+        return {"title": H.unescape(t.group(1)).strip()[:200] if t else "", "desc": H.unescape(d.group(1))[:desc_max] if d else ""}
+    raise RuntimeError("too many redirects")
+
+
+def fetch_article_text(url, limit=12000):
+    """Headings, paragraphs and list items of a public page as plain text (SSRF-safe like fetch_meta). '' if it can't be read."""
+    import html as H
+    for _ in range(4):
+        if not public_url(url):
+            return ""
+        r = requests.get(url, timeout=8, stream=True, allow_redirects=False, headers={"User-Agent": "Mozilla/5.0 Life"})
+        if r.is_redirect:
+            url = requests.compat.urljoin(url, r.headers.get("Location", ""))
+            continue
+        if "html" not in r.headers.get("content-type", "html"):
+            return ""
+        t = r.raw.read(900_000, decode_content=True).decode("utf8", "ignore")
+        t = re.sub(r"<(script|style|nav|footer|header|aside|form|svg|noscript)[^>]*>.*?</\1>", " ", t, flags=re.S | re.I)
+        parts = re.findall(r"<(?:h[1-4]|p|li|figcaption)[^>]*>(.*?)</(?:h[1-4]|p|li|figcaption)>", t, flags=re.S | re.I)
+        txt = "\n".join(H.unescape(re.sub(r"<[^>]+>", "", p)).strip() for p in parts)
+        return re.sub(r"\n{2,}", "\n", re.sub(r"[ \t]+", " ", txt)).strip()[:limit]
+    return ""
+
+
+IG_POST = re.compile(r"^https://(?:www\.)?instagram\.com/(?:[\w.]+/)?(p|reel|tv)/([\w-]+)")
+IG_CDN = re.compile(r"^https://[\w.-]+\.(?:cdninstagram\.com|fbcdn\.net)/")
+
+
+def fetch_slides(url, limit=12):
+    """The photos of a public Instagram post (every slide of a carousel; a reel gives its cover) as (mime, bytes).
+    Instagram's public embed page lists them without a login. Only instagram.com posts and Instagram's own image hosts are fetched."""
+    m = IG_POST.match(url or "")
+    if not m:
+        return []
+    t = requests.get(f"https://www.instagram.com/{m.group(1)}/{m.group(2)}/embed/captioned/", timeout=8, headers={"User-Agent": "Mozilla/5.0"}).text
+    t = t.replace("\\u0026", "&").replace("&amp;", "&").replace("\\", "")   # the JSON is escaped twice
+    urls, seen = [], set()
+    # each slide lists several sizes in display_resources; ~1080px keeps the text legible at about a tenth of the original's weight (originals are often 3 MB+)
+    for block in re.findall(r'"display_resources":\[(.*?)\]', t):
+        sizes = [(int(w), u) for u, w in re.findall(r'"src":"(https://[^"]+)","config_width":(\d+)', block) if IG_CDN.match(u)]
+        pick = max((s for s in sizes if s[0] <= 1080), default=min(sizes, default=None))
+        key = pick[1].split("?")[0] if pick else ""   # the same slide's sizes share a path and differ in the query
+        if pick and key not in seen:
+            seen.add(key); urls.append(pick[1])
+    for u in re.findall(r'"display_url":"(https://[^"]+)"', t):   # fallback for layouts without size lists
+        if not urls and u not in urls and IG_CDN.match(u):
+            urls.append(u)
+    out = []
+    for u in urls[:limit]:
+        try:
+            r = requests.get(u, timeout=8)
+            if r.ok and r.headers.get("content-type", "").startswith("image/") and len(r.content) < 3_000_000:
+                out.append((r.headers["content-type"].split(";")[0], r.content))
+        except Exception:
+            pass
+    return out
 
 
 def public_url(u):
@@ -264,6 +324,60 @@ def due_items(c):
             yield r["id"], r["kind"], d
 
 
+NOTIFY_CATEGORIES = [("reminders", "Reminders"), ("agenda", "Morning brief"), ("travel", "Trips, flights, entry rules"), ("docs", "Passport / visa / document expiry"), ("birthdays", "Birthdays"), ("system", "Problems (Garmin sign-in, backups)")]
+
+
+def _in_quiet(s, now_l):
+    hhmm = now_l.strftime("%H:%M"); qf, qt = s["quiet_from"], s["quiet_to"]
+    return (hhmm >= qf or hhmm < qt) if qf > qt else (qf <= hhmm < qt)
+
+
+def notify(raw_db, settings, set_state, title, body="", url="/#/today", tag=None, category="system", critical=False, kv_get=None, kv_set=None):
+    """One way to reach the phone: web push (the installed app) and/or Telegram, per Settings → Phone notifications.
+    Respects the category switches and quiet hours (held until the quiet hours end, unless critical). Returns what was delivered."""
+    s = settings(); pref = s.get("notify") or {}
+    if (pref.get("categories") or {}).get(category) is False:
+        return {"sent": False, "why": "category off"}
+    tz = ZoneInfo(s["timezone"]); now_l = datetime.now(tz)
+    if not critical and _in_quiet(s, now_l) and kv_get and kv_set:
+        q = kv_get("notify_queue", []) or []
+        q.append({"title": title, "body": body, "url": url, "tag": tag, "category": category}); kv_set("notify_queue", q[-30:])
+        return {"sent": False, "why": "held for quiet hours"}
+    chan = pref.get("channels") or "both"; out = {"sent": False, "push": 0, "telegram": False}
+    if chan in ("both", "push"):
+        try:
+            import push
+            n, perr = push.send_all(raw_db, os.environ.get("LIFE_DATA", "data"), title, body, tag, url)
+            out["push"] = n
+            if n: set_state("web_push", True, "", f"{n} device(s)")
+            elif perr: set_state("web_push", False, perr)
+        except Exception as e:
+            set_state("web_push", False, str(e)[:160])
+    if chan in ("both", "telegram"):
+        ok, err = telegram_send(s, title + (("\n" + body) if body else ""))
+        out["telegram"] = ok
+    out["sent"] = bool(out["push"] or out["telegram"])
+    return out
+
+
+def drain_notify_queue(raw_db, settings, set_state, kv_get, kv_set):
+    """Quiet hours are over: deliver what was held."""
+    q = kv_get("notify_queue", []) or []
+    if not q or _in_quiet(settings(), datetime.now(ZoneInfo(settings()["timezone"]))):
+        return
+    kv_set("notify_queue", [])
+    for m in q[:10]:
+        notify(raw_db, settings, set_state, m["title"], m.get("body", ""), m.get("url", "/#/today"), m.get("tag"), m.get("category", "system"), critical=True)
+
+
+def _garmin_connected():
+    try:
+        import garmin
+        return garmin.connected()
+    except Exception:
+        return False
+
+
 def tick(raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert):
     s = settings()
     now = time.time()
@@ -277,11 +391,23 @@ def tick(raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert):
             gmail.sync(upsert, raw_db, set_state, settings, now_iso)
         except Exception as e:
             print('gmail:', e)
-    if now - _last.get('garmin', 0) > 4 * 3600 and os.environ.get('GARMIN_EMAIL'):
+    _last.setdefault('enrich', now)   # first top-up 10 minutes after start, not during start-up
+    if now - _last.get('enrich', 0) > 10 * 60:
+        _last['enrich'] = now
+        try:
+            import assistant
+            n_ = assistant.enrich_ids(raw_db, upsert, settings, None, 6)   # a few per run: OpenStreetMap allows one request a second
+            set_state('enrich', True, '', f'{n_} list item(s) filled in on the last pass')
+        except Exception as e:
+            set_state('enrich', False, str(e)[:160])
+    if now - _last.get('garmin', 0) > 4 * 3600 and (os.environ.get('GARMIN_EMAIL') or _garmin_connected()):
         _last['garmin'] = now
         try:
             import garmin
-            garmin.sync(upsert, raw_db, set_state, now_iso, days=3)
+            r_ = garmin.sync(upsert, raw_db, set_state, now_iso, days=3)
+            if r_.get('reason') == 'reauth' and now - _last.get('garmin_told', 0) > 24 * 3600:
+                _last['garmin_told'] = now
+                notify(raw_db, settings, set_state, 'Garmin needs you to sign in again', 'Open Health and press Sync now. Life will not retry by itself.', '/#/health', 'garmin', 'system', kv_get=kv_get, kv_set=kv_set)
         except Exception as e:
             print('garmin:', e)
     if now - _last.get('wealthsnap', 0) > 6 * 3600:
@@ -291,6 +417,18 @@ def tick(raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert):
             extras.tick_extras(raw_db, set_state, settings, now_iso, upsert)
         except Exception as e:
             print('wealth snapshot:', e)
+    if now - _last.get('visawatch', 0) > 24 * 3600 and datetime.now(ZoneInfo(s['timezone'])).hour >= 9:
+        _last['visawatch'] = now
+        try:
+            import assistant
+            if assistant.VISA_WATCH:
+                ch_ = assistant.VISA_WATCH(raw_db, lambda t, b, u: notify(raw_db, settings, set_state, t, b, u, 'visa-watch', 'travel', kv_get=kv_get, kv_set=kv_set))
+                set_state('entry_rules', True, '', f'upcoming countries re-checked; {len(ch_)} change(s)')
+        except Exception as e:
+            set_state('entry_rules', False, str(e)[:160])
+    if now - _last.get('qdrain', 0) > 120:
+        _last['qdrain'] = now
+        drain_notify_queue(raw_db, settings, set_state, kv_get, kv_set)
     if now - _last.get('tgpoll', 0) > 30:
         _last['tgpoll'] = now
         telegram_poll(raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert)
@@ -298,7 +436,7 @@ def tick(raw_db, set_state, kv_get, kv_set, settings, now_iso, upsert):
     if now - _last.get('auto', 0) > 1800:
         _last['auto'] = now
         try:
-            auto_reminders(raw_db, set_state, settings, now_iso, upsert)
+            auto_reminders(raw_db, set_state, settings, now_iso, upsert, kv_get, kv_set)
         except Exception as e:
             print('auto_reminders:', e)
     c = raw_db()
@@ -348,7 +486,7 @@ def _patch(c, upsert, now_iso, rid, kind, data):
     c.commit()
 
 
-def auto_reminders(raw_db, set_state, settings, now_iso, upsert):
+def auto_reminders(raw_db, set_state, settings, now_iso, upsert, kv_get=None, kv_set=None):
     s = settings()
     tz = ZoneInfo(s["timezone"])
     now_l = datetime.now(tz)
@@ -365,13 +503,13 @@ def auto_reminders(raw_db, set_state, settings, now_iso, upsert):
             done = set(d.get("notified") or [])
             due = [a for a in (180, 90, 30, 7) if left <= a and a not in done]
             if due and left >= -365:
-                ok, _ = telegram_send(s, f"\u23f3 {d.get('name', 'Document')} {'expires in %d days' % left if left >= 0 else 'expired %d days ago' % -left}")
+                notify(raw_db, settings, set_state, f"\u23f3 {d.get('name', 'Document')} {'expires in %d days' % left if left >= 0 else 'expired %d days ago' % -left}", '', '/#/vault', 'doc-' + r['id'][:8], 'docs', kv_get=kv_get, kv_set=kv_set)
                 _patch(c, upsert, now_iso, r["id"], "travel_doc", {"notified": sorted(done | set(due))})
         for r in c.execute("SELECT id,data FROM records WHERE kind='person' AND deleted_at IS NULL"):
             d = json.loads(r["data"])
             b = d.get("birthday") or ""
             if len(b) >= 5 and b[-5:] == today.strftime("%m-%d") and d.get("notified_year") != today.year:
-                telegram_send(s, f"\U0001f382 {d.get('name')}'s birthday today")
+                notify(raw_db, settings, set_state, f"\U0001f382 {d.get('name')}'s birthday today", '', '/#/people', 'bday-' + r['id'][:8], 'birthdays', kv_get=kv_get, kv_set=kv_set)
                 _patch(c, upsert, now_iso, r["id"], "person", {"notified_year": today.year})
         for r in c.execute("SELECT id,data FROM records WHERE kind='trip' AND deleted_at IS NULL"):
             d = json.loads(r["data"])
@@ -381,7 +519,7 @@ def auto_reminders(raw_db, set_state, settings, now_iso, upsert):
             done = set(d.get("notified") or [])
             for key, hit in (("T7", n == 7), ("T1", n == 1)):
                 if hit and key not in done:
-                    telegram_send(s, f"\u2708 {d.get('name')} starts in {n} day{'s' if n > 1 else ''}. Check the list: passport, visa, packing.")
+                    notify(raw_db, settings, set_state, f"\u2708 {d.get('name')} starts in {n} day{'s' if n > 1 else ''}", 'Check the list: passport, visa, packing.', '/#/travel/t/' + r['id'], 'trip-' + r['id'][:8], 'travel', kv_get=kv_get, kv_set=kv_set)
                     done.add(key)
                     _patch(c, upsert, now_iso, r["id"], "trip", {"notified": sorted(done)})
         for r in c.execute("SELECT id,data FROM records WHERE kind='booking' AND deleted_at IS NULL"):
@@ -390,7 +528,7 @@ def auto_reminders(raw_db, set_state, settings, now_iso, upsert):
                 continue
             dep = datetime.fromisoformat(d["start"] + "T" + d["start_time"]).replace(tzinfo=tz)
             if timedelta(0) <= dep - now_l <= timedelta(hours=3):
-                telegram_send(s, f"\u2708 Leave soon: {d.get('title')} departs {d['start_time']}" + (f", terminal {d['terminal']}" if d.get("terminal") else ""))
+                notify(raw_db, settings, set_state, f"\u2708 Leave soon: {d.get('title')} departs {d['start_time']}", (f"Terminal {d['terminal']}" if d.get('terminal') else ''), '/#/travel', 'flight-' + r['id'][:8], 'travel', critical=True)
                 _patch(c, upsert, now_iso, r["id"], "booking", {"notified_3h": True})
     finally:
         c.close()
@@ -468,7 +606,5 @@ def daily_agenda(raw_db, set_state, kv_get, kv_set, settings):
         return
     if now.weekday() not in [(d - 1) % 7 for d in s.get("work_days", [1, 2, 3, 4, 5])] and s.get("agenda_workdays_only", True):
         kv_set("last_agenda", now.date().isoformat()); return
-    ok, err = telegram_send(s, agenda_text(raw_db, s))
+    out = notify(raw_db, settings, set_state, 'Your day', agenda_text(raw_db, s), '/#/today', 'agenda', 'agenda', critical=True)
     kv_set("last_agenda", now.date().isoformat())
-    if not ok and err and "not configured" not in err:
-        set_state("telegram", False, err)

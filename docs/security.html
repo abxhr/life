@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security & privacy · Life</title><meta name="description" content="How Life protects your data and what leaves your computer."><meta name="theme-color" content="#25304b">
+<link rel="icon" href="assets/icon.png"><link rel="stylesheet" href="assets/site.css"></head>
+<body><header class="top"><div class="in"><a class="brand" href="index.html"><img src="assets/icon.png" alt="">Life</a><nav aria-label="Main"><a href="index.html">Home</a><a href="features.html">Features</a><a href="iphone.html">iPhone</a><a href="setup.html">Set up</a><a href="security.html" aria-current="page">Security</a></nav></div></header>
+<main class="wrap">
+<h1>Security &amp; privacy</h1>
+<p>Life is a single-user app on a computer you control. The design goal: <b>nothing leaves unless you chose it, and what does leave is small and named.</b></p>
+<h2>Sign-in</h2>
+<ul><li>Password hashed with PBKDF2-HMAC-SHA256, <b>600,000</b> rounds, per-password salt (older hashes upgrade automatically at the next sign-in). Login attempts are rate-limited.</li>
+<li><b>Face ID</b> (passkeys / WebAuthn): the server checks the challenge it issued, the origin, the app identity, that the device verified <i>you</i>, and the ECDSA signature. Replays and forged requests are refused (tested).</li>
+<li>With "Only open Life with Face ID" on, a session also needs a recent Face ID unlock, and the password stops working from the phone.</li>
+<li>Session cookie: HttpOnly, SameSite=Lax, Secure over HTTPS. Every change-making request needs a CSRF token.</li></ul>
+<h2>Your secrets</h2>
+<ul><li>Keys you enter (OpenAI, Telegram, Gmail, Garmin) are stored <b>encrypted</b> (Fernet) and shown as "set"; they are never sent back to the browser, and are redacted from error messages and the health page.</li>
+<li>Passport and ID numbers, health values and file scans are encrypted at rest. Garmin uses saved login tokens, not your password.</li>
+<li>The repository contains no keys, tokens or passwords: <code>.env</code>, <code>data/</code> and key files are git-ignored, and a test scans every file for key-shaped strings.</li></ul>
+<h2>Private links</h2>
+<ul><li>The share Shortcut uses a <b>write-only</b> token: it can add things and read nothing. Calendar and Siri links are separate, read-only, unguessable, show only titles and dates, and can be reset any time. All are rate-limited.</li></ul>
+<h2>The web side</h2>
+<ul><li>Strict Content-Security-Policy (<code>script-src 'self'</code>), <code>X-Frame-Options: DENY</code>, <code>nosniff</code>, a Permissions-Policy, COOP, and HSTS when served over HTTPS.</li>
+<li>No <code>innerHTML</code>: the interface is built from DOM nodes, so note text cannot inject markup. Uploads are type- and size-limited. Fetching a link only reaches public addresses (no internal network).</li>
+<li>No analytics, no third-party scripts, fonts or trackers. Map tiles are the only third-party request, and only when you open a map.</li></ul>
+<h2>What leaves your computer</h2>
+<table><tr><th>When</th><th>Sent to</th><th>What</th></tr>
+<tr><td>You share a post / ask the assistant / fill in details</td><td>Your AI provider (OpenAI)</td><td>The caption or slides you shared, or the question, after card and ID-like numbers are scrubbed</td></tr>
+<tr><td>Entry rules</td><td>The airline's public visa service, then your AI provider</td><td>Three country codes (passport, residence, destination); then the returned rule text</td></tr>
+<tr><td>Film details</td><td>Wikidata (and IMDb's ratings file, only when you press the button)</td><td>A film title</td></tr>
+<tr><td>Place location</td><td>OpenStreetMap</td><td>A place name and city</td></tr>
+<tr><td>Reminders</td><td>Apple/Google push, Telegram</td><td>The notification text</td></tr></table>
+<p>Full details are in <code>PRIVACY.md</code> and <code>SECURITY.md</code> in the repository.</p>
+<h2>Honest limits</h2>
+<ul><li>Entry rules and costs are helpers, not advice: always confirm with the embassy or official site before you book.</li>
+<li>Prices are estimates; areas and map pins are only filled when a post states them or OpenStreetMap knows the place.</li>
+<li>Entry rules come from an airline's public visa web service that Life calls <b>unofficially</b> (a handful of requests per country, cached for a week, with polite spacing). It may change or block this at any time, and Life then simply shows nothing rather than guessing.</li>
+<li>Instagram can hide captions or change its pages; Life then falls back to reading the slides, and finally to your Inbox.</li>
+<li>Garmin's library is unofficial and may break; file import keeps working.</li></ul>
+
+<footer>Life is a private, single-user app that runs on your own computer. This site was built from the project's own docs and sample data: no real personal data appears in any screenshot.</footer></main></body></html>

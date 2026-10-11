@@ -6,7 +6,10 @@ from test_backend import cli, put  # noqa: F401
 # Routes that are public ON PURPOSE, with the reason.
 PUBLIC = {"/": "app shell (no data)", "/sw.js": "service worker", "/manifest.json": "PWA manifest", "/share": "share-target redirect", "/_styleguide": "static component gallery",
           "/api/me": "auth state only", "/api/login": "login (rate limited)", "/api/capture": "write-only token", "/api/ping": "reachability, reveals nothing",
-          "/api/telegram/webhook/<secret>": "secret path + chat-id check", "/s/<token>": "unguessable expiring share link", "/static/<path:filename>": "public assets (no secrets)"}
+          "/api/telegram/webhook/<secret>": "secret path + chat-id check", "/s/<token>": "unguessable expiring share link", "/static/<path:filename>": "public assets (no secrets)",
+          "/api/passkey/status": "is Face ID set up (a yes/no)", "/api/passkey/login/options": "Face ID challenge for the sign-in screen (rate limited, reveals only credential ids)",
+          "/api/passkey/login/verify": "Face ID sign-in: signature-verified, rate limited", "/api/lock": "locking is harmless (no data)",
+          "/feed/<tok>/life.ics": "private feed URL (unguessable token; titles and dates only)", "/feed/<tok>/today.txt": "private feed URL (unguessable token; titles and dates only)"}
 
 
 def routes():
@@ -83,8 +86,9 @@ def test_uploads_are_type_checked_and_encrypted(cli):
 
 def test_error_messages_never_leak_secrets(cli, monkeypatch):
     import app
-    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456789:fixture"); monkeypatch.setenv("ANTHROPIC_API_KEY", "key-FIXTURE-FIXTURE-FIXTURE")
-    app.set_state("telegram", False, "HTTPSConnectionPool: /bot123456789:fixture/sendMessage failed with key-FIXTURE-FIXTURE-FIXTURE")
+    tg = "123456789" + ":" + "A" * 35; ak = "sk" + "-ant-api03-" + "SECRET" * 3   # built here so no key-shaped literal sits in the repo
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", tg); monkeypatch.setenv("ANTHROPIC_API_KEY", ak)
+    app.set_state("telegram", False, f"HTTPSConnectionPool: /bot{tg}/sendMessage failed with {ak}")
     h = json.dumps(cli.get("/api/health").get_json())
     assert "AAAAAAAAAA" not in h and "SECRETSECRET" not in h and "***" in h
 
@@ -95,3 +99,23 @@ def test_search_and_sync_inputs_are_safe(cli):
     r = cli.post("/api/sync", json={"changes": [{"id": str(uuid.uuid4()), "kind": "task'); --", "data": {}}]}, headers=cli.h); assert r.status_code == 400
     assert cli.get("/api/linkmeta?url=http://127.0.0.1:5055/api/me").status_code == 400            # SSRF: private addresses refused
     assert cli.get("/api/linkmeta?url=http://169.254.169.254/latest/meta-data").status_code == 400
+
+
+def test_headers_and_password_hash_strength_and_upgrade(cli):
+    import app, hashlib
+    r = cli.get("/api/me")
+    assert "microphone=(self)" in r.headers["Permissions-Policy"] and r.headers["Cross-Origin-Opener-Policy"] == "same-origin" and "object-src 'none'" in r.headers["Content-Security-Policy"]
+    assert app.kv_get("pw").startswith("v2$600000$")                                                          # new passwords: 600k rounds, versioned
+    legacy = "abcd" + "$" + hashlib.pbkdf2_hmac("sha256", b"hunter2hunter2", b"abcd", 310_000).hex()         # a hash in the original format
+    app.kv_set("pw", legacy); assert app.check_pw("hunter2hunter2", legacy) and not app.check_pw("wrong-password", legacy)
+    anon = app.app.test_client(); assert anon.post("/api/login", json={"password": "hunter2hunter2"}).status_code == 200
+    assert app.kv_get("pw").startswith("v2$")                                                                  # upgraded at the next sign-in
+    assert anon.post("/api/login", json={"password": "hunter2hunter2"}).status_code == 200                    # and still works afterwards
+
+
+def test_token_endpoints_are_rate_limited(cli):
+    import app
+    anon = app.app.test_client(); codes = [anon.post("/api/share-in", json={"test": True}, headers={"Authorization": "Bearer nope"}).status_code for _ in range(63)]
+    assert codes[0] == 401 and codes[-1] == 401 and 401 in codes                                              # wrong tokens are refused...
+    tok = cli.post("/api/tokens", json={"label": "x"}, headers=cli.h).get_json()["token"]
+    assert anon.post("/api/share-in", json={"test": True}, headers={"Authorization": "Bearer " + tok}).status_code == 401   # ...and once over the limit even a right token waits

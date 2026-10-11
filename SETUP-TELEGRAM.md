@@ -3,13 +3,10 @@
 Telegram is the most reliable way to reach you when the app is closed, and the default channel for **critical** reminders.
 
 1. In Telegram, message **@BotFather** → `/newbot` → pick a name → copy the **token**.
-2. Put it in `.env`:
-   ```
-   TELEGRAM_BOT_TOKEN=123456:ABC...
-   ```
+2. Life → **Settings → Reminders & Telegram** → paste it into **Telegram bot token** (stored encrypted; no restart needed). *(Alternative: `TELEGRAM_BOT_TOKEN` in `.env`.)*
 3. Find **your chat id**: send any message to your new bot, then open
    `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser — look for `"chat":{"id":123456789`.
-4. Life → **Settings → Reminders & Telegram** → paste the chat id → **Send test notification**. (Restart Life after editing `.env`.)
+4. Life → **Settings → Reminders & Telegram** → paste the chat id → **Send test notification**.
 
 ## What it does
 * **Reminders** are sent to Telegram (per-task choice: everywhere / Telegram only / push only / in-app only). Quiet hours (Settings) hold back non-critical ones; **critical** ones break through and **re-notify every 10 minutes until you press OK/Done** in the app.

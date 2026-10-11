@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set up · Life</title><meta name="description" content="Run Life on your computer, reach it from your phone, add integrations, back up your data."><meta name="theme-color" content="#25304b">
+<link rel="icon" href="assets/icon.png"><link rel="stylesheet" href="assets/site.css"></head>
+<body><header class="top"><div class="in"><a class="brand" href="index.html"><img src="assets/icon.png" alt="">Life</a><nav aria-label="Main"><a href="index.html">Home</a><a href="features.html">Features</a><a href="iphone.html">iPhone</a><a href="setup.html" aria-current="page">Set up</a><a href="security.html">Security</a></nav></div></header>
+<main class="wrap">
+<h1>Set up</h1>
+<h2>Run it</h2>
+<p><b>Windows:</b> double-click <code>run.bat</code>. First run creates a virtual environment, installs the requirements and starts the server on <code>http://127.0.0.1:5055</code>. Open it and choose a password (8+ characters). <b>Mac/Linux:</b> <code>./run.sh</code>.</p>
+<p>To keep it running in the background, use a service wrapper such as NSSM: program <code>.venv\Scripts\python.exe</code>, arguments <code>app.py</code>, start directory = the project folder.</p>
+<h2>Reach it from your phone</h2>
+<p>Recommended: <b>Tailscale</b> on the computer and the phone, then <code>tailscale serve --bg 5055</code> gives you a private HTTPS address only your devices can reach. Add <code>LIFE_HTTPS=1</code> to <code>.env</code> so cookies are marked Secure. Never use <code>tailscale funnel</code> (that is public). A small VPS behind Caddy also works; the full steps are in <code>SETUP-PHONE.md</code>.</p>
+<h2>Add integrations in Settings</h2>
+<p>Everything is optional and fails softly into <b>Settings → Data health</b>. Keys you type in Settings are stored <b>encrypted</b> and applied immediately (no restart). A value in <code>.env</code> still works as a fallback.</p>
+<table><tr><th>Integration</th><th>What for</th><th>Where</th></tr>
+<tr><td>OpenAI key</td><td>Assistant, voice, share/enrichment (cheap models), Decisions API for entry rules</td><td>Settings → Voice &amp; assistant</td></tr>
+<tr><td>Anthropic key</td><td>Optional alternative for the assistant</td><td>same</td></tr>
+<tr><td>Telegram bot</td><td>Reminders, inbox capture, morning brief</td><td>Settings → Reminders &amp; Telegram</td></tr>
+<tr><td>Gmail app password</td><td>Email a to-do to yourself; booking proposals</td><td>Settings → Email-in</td></tr>
+<tr><td>Garmin</td><td>Sleep, steps, heart rate. One sign-in, tokens kept</td><td>Settings → Garmin, then Health → Sync now</td></tr>
+<tr><td>IMDb ratings</td><td>★ on films and series (free dataset, ~7 MB, downloaded only when you press the button)</td><td>Settings → Film &amp; series ratings</td></tr>
+<tr><td>OMDb key</td><td>Optional extra film details</td><td>Settings → Voice &amp; assistant</td></tr></table>
+<p>Set your <b>passport country</b> and <b>where you live</b> in <b>Settings → You</b> for the entry rules. Add the visas you hold in <b>Travel → Documents</b> (type "Visa").</p>
+<h2>Your data</h2>
+<ul><li>One SQLite file, <code>data/life.db</code>. Settings → Your data: <b>Export everything</b> (JSON + Markdown), <b>Download a backup</b> (to the Files app on iPhone), <b>Backup with key</b>.</li><li>A nightly backup keeps 14 days in <code>data/backups</code>.</li><li><b>Back up <code>data/fernet.key</code> too.</b> It encrypts passport numbers, health values, scans and the keys you entered. Lose it and those are unrecoverable, by design.</li></ul>
+<h2>Run the tests</h2>
+<pre><code>.venv\Scripts\python tests\run_all.py          # everything (about 6 minutes)
+.venv\Scripts\python tests\run_all.py --fast   # syntax, unit and backend tests (about 30 s)</code></pre>
+<p>They cover the backend, security rules, every page at desktop and phone size, Face ID with a virtual authenticator, touch gestures, offline mode and sync. A test also scans the repo for anything key-shaped.</p>
+
+<footer>Life is a private, single-user app that runs on your own computer. This site was built from the project's own docs and sample data: no real personal data appears in any screenshot.</footer></main></body></html>
