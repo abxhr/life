@@ -1,6 +1,18 @@
-# Life — your day, quietly
+# Life: your day, quietly
 
-A private, single-user life manager that looks and feels like a notebook: ruled paper, a red margin line, a spiral-bound spine, handwritten type (Gaegu, self-hosted). One place for *today*, *what's on my mind*, *how I'm doing*, *where I'm going*, *what to do with this time*, and *work to-dos from a locked-down PC*.
+A private, single-user life manager that looks and feels like a notebook: ruled paper, a red margin line, handwritten type (Gaegu, self-hosted). One place for *today*, *what's on my mind*, *what to eat and watch*, *where I'm going*, *how I'm doing* and *work to-dos from a locked-down PC*. **It runs on your own computer and is built to live on your iPhone.**
+
+<p align="center">
+<img src="docs/assets/shots/phone-today.png" width="190" alt="Today"> <img src="docs/assets/shots/phone-restaurants.png" width="190" alt="Restaurants"> <img src="docs/assets/shots/phone-movies.png" width="190" alt="Films and series"> <img src="docs/assets/shots/phone-entry-card.png" width="190" alt="Entry rules for you">
+</p>
+
+**Docs site (GitHub Pages):** the `docs/` folder is a small static site with screenshots, an iPhone guide, setup and security notes. Enable it under *Settings → Pages → Deploy from a branch → `main` / `/docs`*.
+
+## Highlights
+* **Share anything into your lists.** Instagram posts (caption *and every slide*), web pages and screenshots are read, filed into the right list (Restaurants, Cafes, Movies, Series…), **de-duplicated**, and filled in: cuisine, area, cost; genre, language, year, ★ IMDb. Rows stay short; details are one tap away.
+* **Travel that knows you.** "Entry for you" on every country page from your passport, residence and the **visas you hold** (with the reason and the airline's own condition), a "Where can I go?" explorer, daily alerts when rules change for countries you plan to visit, and a smarter pre-trip checklist.
+* **iPhone first.** Install to the Home Screen, **Face ID** unlock, push **notifications**, swipe rows, pull to refresh, drag-down sheets, a Share Sheet Shortcut, an **iPhone Calendar feed**, a Siri "what's my day?", launch screens.
+* **Private.** Runs locally, one SQLite file, keys stored encrypted, no analytics or trackers. See [SECURITY](SECURITY.md) and [PRIVACY](PRIVACY.md).
 
 Flask + SQLite (WAL) + vanilla JS. Installable PWA, offline-first (IndexedDB + outbox), no framework, no analytics, no third-party requests (fonts, maps' world shapes, charts and QR code libraries are all vendored).
 
@@ -11,7 +23,7 @@ run.bat
 ```
 First run creates `.venv`, installs `requirements.txt`, and starts the server on <http://127.0.0.1:5055>. Open it and choose a password (8+ characters). `run.sh` does the same on Mac/Linux.
 
-Optional: copy `.env.example` to `.env` and fill in only what you use (Telegram, Anthropic, Gmail, Garmin). Everything works without any of them; each integration fails soft into **Settings → Data health**.
+Optional integrations (Telegram, Anthropic/OpenAI, Gmail, Garmin, OMDb) are entered in **Settings** (stored encrypted, applied instantly); `.env` still works as a fallback. Everything works without any of them; each integration fails soft into **Settings → Data health**.
 
 Run it as a background Windows service the way you do the wealth app (NSSM): program `…\.venv\Scripts\python.exe`, arguments `app.py`, start directory = this folder.
 
@@ -50,14 +62,14 @@ Keyboard: `C` capture · `T` task · `N` note · `/` or `Ctrl+K` palette · `Ctr
 ## Tests (run before trusting a change)
 
 ```bat
-.venv\Scripts\python tests\run_all.py          :: everything (~4 min)
-.venv\Scripts\python tests\run_all.py --fast   :: syntax + unit + pytest only (~15 s)
+.venv\Scripts\python testsun_all.py          :: everything (about 6 minutes)
+.venv\Scripts\python testsun_all.py --fast   :: syntax + unit + backend only (about 30 s)
 ```
-Covers: natural-language dates, recurrence (month-ends, DST), Schengen 90/180, passport validity, leave bridges, QR hand-off round-trip, sync conflict rules, encryption/masking, security checklist (auth + CSRF on every route, XSS payloads, SSRF, uploads, rate limits, no secrets in errors), reminders (once, snooze, quiet hours, critical re-nag), Telegram inbound, Garmin mapping/import, assistant pipeline (mock model), share links, a Playwright run through every page at desktop and 390 px in both themes with zero console errors, axe-core WCAG AA, and speed on a 2,500-task / 1,200-note data set (every view well under 200 ms).
+Covers: natural-language dates, recurrence, Schengen 90/180, sync conflicts, encryption, a security checklist (auth + CSRF on every route, XSS, SSRF, uploads, rate limits, no secrets in errors, **no key-shaped strings anywhere in the repo**), reminders and notifications (categories, quiet hours), Telegram, Garmin sign-in (one password sign-in, then tokens only), the share pipeline (mock model), entry rules and the all-countries explorer, **Face ID** (a fake authenticator tries wrong origin, wrong app, replay…; and a real browser with a virtual authenticator), touch gestures with real touch events, a Playwright pass over every page at desktop and phone size in both themes, axe-core WCAG AA, offline mode, and speed on a 2,500-task data set.
 
 ## Honest status: what has and hasn't been exercised live
 
 Verified by automated tests against real code paths: everything above.
-**Not exercised against the live service** (needs your credentials, so I could not): Garmin login/MFA/sync (`garminconnect` is unofficial and may break — file import is the fallback), Gmail IMAP, Telegram delivery, Anthropic API calls (tested with a deterministic mock model; the real streaming/tool loop follows the SDK docs but please try a chat), web push delivery to a real device, the wealth-app endpoints (contract in [WEALTH-API.md](WEALTH-API.md)). Each has exact verification steps in its setup doc and a status line in Settings → Data health.
+**Exercised live during development** (with a real key, on sample posts): the Instagram share pipeline, enrichment (Wikidata, OpenStreetMap), and the entry-rule lookup with the OpenAI Decisions API. **Not exercised against a real device or account** (needs hardware or credentials): Face ID on an actual iPhone (tested with a virtual authenticator), iOS push delivery, the iOS Shortcut and Calendar subscription, Garmin login/MFA/sync (`garminconnect` is unofficial and may break — file import is the fallback), Gmail IMAP, Telegram delivery, the wealth-app endpoints (contract in [WEALTH-API.md](WEALTH-API.md)). Each has exact verification steps in its setup doc and a status line in Settings → Data health.
 
-Docs: [SETUP-PHONE](SETUP-PHONE.md) · [SETUP-WORK-PC](SETUP-WORK-PC.md) · [SETUP-GARMIN](SETUP-GARMIN.md) · [SETUP-TELEGRAM](SETUP-TELEGRAM.md) · [PRIVACY](PRIVACY.md) · [SECURITY](SECURITY.md) · [WEALTH-API](WEALTH-API.md) · [DESIGN](DESIGN.md) · component gallery at `/_styleguide`.
+Docs: [ROADMAP](ROADMAP.md) · [SETUP-PHONE](SETUP-PHONE.md) · [SETUP-WORK-PC](SETUP-WORK-PC.md) · [SETUP-GARMIN](SETUP-GARMIN.md) · [SETUP-TELEGRAM](SETUP-TELEGRAM.md) · [PRIVACY](PRIVACY.md) · [SECURITY](SECURITY.md) · [WEALTH-API](WEALTH-API.md) · [DESIGN](DESIGN.md) · component gallery at `/_styleguide`.
