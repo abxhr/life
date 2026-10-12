@@ -8,7 +8,7 @@ LAYOUT = """<!doctype html>
 <link rel="icon" href="assets/icon.png"><link rel="stylesheet" href="assets/site.css"></head>
 <body><header class="top"><div class="in"><a class="brand" href="index.html"><img src="assets/icon.png" alt="">Life</a><nav aria-label="Main">{nav}</nav></div></header>
 <main class="wrap">{body}
-<footer>Life is a private, single-user app that runs on your own computer. This site was built from the project's own docs and sample data: no real personal data appears in any screenshot.</footer></main></body></html>
+<footer>Life is a private, single-user app that runs on your own computer. This site was built from the project's own docs and sample data: no real personal data appears in any screenshot. Handwriting font: Gaegu (SIL Open Font License).</footer></main></body></html>
 """
 
 def shot(name, cap, kind="phone"):
@@ -113,30 +113,97 @@ PAGES["iphone.html"] = ("iPhone guide · Life", "Install Life on your iPhone and
 <p>A web app cannot have native Home Screen widgets or appear in Siri without a Shortcut. The Calendar feed and the Shortcuts above are the closest equivalents.</p>
 """)
 
-PAGES["setup.html"] = ("Set up · Life", "Run Life on your computer, reach it from your phone, add integrations, back up your data.", f"""
+PAGES["setup.html"] = ("Set up · Life", "Install and run Life on your computer, reach it from your iPhone, add integrations, back up, update and troubleshoot.", f"""
 <h1>Set up</h1>
-<h2>Run it</h2>
-<p><b>Windows:</b> double-click <code>run.bat</code>. First run creates a virtual environment, installs the requirements and starts the server on <code>http://127.0.0.1:5055</code>. Open it and choose a password (8+ characters). <b>Mac/Linux:</b> <code>./run.sh</code>.</p>
-<p>To keep it running in the background, use a service wrapper such as NSSM: program <code>.venv\\Scripts\\python.exe</code>, arguments <code>app.py</code>, start directory = the project folder.</p>
-<h2>Reach it from your phone</h2>
-<p>Recommended: <b>Tailscale</b> on the computer and the phone, then <code>tailscale serve --bg 5055</code> gives you a private HTTPS address only your devices can reach. Add <code>LIFE_HTTPS=1</code> to <code>.env</code> so cookies are marked Secure. Never use <code>tailscale funnel</code> (that is public). A small VPS behind Caddy also works; the full steps are in <code>SETUP-PHONE.md</code>.</p>
-<h2>Add integrations in Settings</h2>
-<p>Everything is optional and fails softly into <b>Settings → Data health</b>. Keys you type in Settings are stored <b>encrypted</b> and applied immediately (no restart). A value in <code>.env</code> still works as a fallback.</p>
-<table><tr><th>Integration</th><th>What for</th><th>Where</th></tr>
-<tr><td>OpenAI key</td><td>Assistant, voice, share/enrichment (cheap models), Decisions API for entry rules</td><td>Settings → Voice &amp; assistant</td></tr>
-<tr><td>Anthropic key</td><td>Optional alternative for the assistant</td><td>same</td></tr>
-<tr><td>Telegram bot</td><td>Reminders, inbox capture, morning brief</td><td>Settings → Reminders &amp; Telegram</td></tr>
-<tr><td>Gmail app password</td><td>Email a to-do to yourself; booking proposals</td><td>Settings → Email-in</td></tr>
-<tr><td>Garmin</td><td>Sleep, steps, heart rate. One sign-in, tokens kept</td><td>Settings → Garmin, then Health → Sync now</td></tr>
-<tr><td>IMDb ratings</td><td>★ on films and series (free dataset, ~7 MB, downloaded only when you press the button)</td><td>Settings → Film &amp; series ratings</td></tr>
-<tr><td>OMDb key</td><td>Optional extra film details</td><td>Settings → Voice &amp; assistant</td></tr></table>
-<p>Set your <b>passport country</b> and <b>where you live</b> in <b>Settings → You</b> for the entry rules. Add the visas you hold in <b>Travel → Documents</b> (type "Visa").</p>
-<h2>Your data</h2>
-<ul><li>One SQLite file, <code>data/life.db</code>. Settings → Your data: <b>Export everything</b> (JSON + Markdown), <b>Download a backup</b> (to the Files app on iPhone), <b>Backup with key</b>.</li><li>A nightly backup keeps 14 days in <code>data/backups</code>.</li><li><b>Back up <code>data/fernet.key</code> too.</b> It encrypts passport numbers, health values, scans and the keys you entered. Lose it and those are unrecoverable, by design.</li></ul>
+<p>About 10 minutes for the basics; the phone and integrations are optional extras you can add any time. Life runs on <b>your own computer</b> (or a small server you control); your phone just opens it.</p>
+
+<h2>What you need</h2>
+<ul>
+<li>A computer that is on when you want Life: Windows, Mac or Linux. A home PC works well.</li>
+<li>A recent <b>Python 3</b> (developed and tested on 3.14). Get it from python.org; on Windows tick "Add Python to PATH".</li>
+<li><b>Git</b> to download and update the code (or download the folder as a zip).</li>
+<li>For the phone: an iPhone with Safari, and <b>Tailscale</b> (free) on the computer and the phone, so the phone can reach it privately over HTTPS.</li>
+<li>Optional: Node.js 18+ (only to run the JavaScript tests).</li>
+</ul>
+
+<h2>1 · Get the code and start it</h2>
+<ol class="steps">
+<li>Download the project: <code>git clone &lt;your repository address&gt; life</code>, then open the <code>life</code> folder.</li>
+<li><b>Windows:</b> double-click <code>run.bat</code>. <b>Mac/Linux:</b> run <code>./run.sh</code>. The first run creates a private Python environment, installs the requirements (a few minutes) and starts the server.</li>
+<li>Open <code>http://127.0.0.1:5055</code> in a browser on the same computer. Choose a password (8 or more characters; use a long one). That is your account: there is no sign-up and no cloud.</li>
+<li>Settings → <b>You</b>: your name, timezone, currency, <b>passport country</b> and <b>where you live</b>. (These drive the visa and entry-rule features.)</li>
+</ol>
+<p>Everything you save lives in one folder, <code>data/</code>, next to the code. It is never uploaded anywhere by Life.</p>
+
+<h2>2 · Keep it running</h2>
+<p>Life stops when you close its window, so for daily use run it in the background:</p>
+<ul>
+<li><b>Windows:</b> NSSM (a service wrapper): program <code>.venv\\Scripts\\python.exe</code>, arguments <code>app.py</code>, start directory = the project folder. Or a Task Scheduler task "At log on" that runs <code>.venv\\Scripts\\pythonw.exe app.py</code> in the project folder (no window).</li>
+<li><b>Mac:</b> a launchd agent; <b>Linux:</b> a systemd service running <code>.venv/bin/python app.py</code> in the project folder.</li>
+<li>Keep the computer awake (power settings) if you want reminders and notifications at any hour.</li>
+</ul>
+
+<h2>3 · Reach it from your iPhone</h2>
+<p>iOS only allows notifications, Face ID and installation for <b>HTTPS</b> sites, so Life needs a secure address your phone can reach. The easiest private way is Tailscale: only your own devices can open it.</p>
+<ol class="steps">
+<li>Install <b>Tailscale</b> on the computer and on the iPhone, and sign in to the same account on both.</li>
+<li>On the computer, in a terminal: <code>tailscale serve --bg 5055</code>. Tailscale prints an address like <code>https://your-pc.your-tailnet.ts.net</code> with a real certificate. <b>Do not use <code>tailscale funnel</code>: that makes it public.</b></li>
+<li>In the project folder create a file named <code>.env</code> with one line: <code>LIFE_HTTPS=1</code>, then restart Life. (This marks the sign-in cookie as Secure.)</li>
+<li>On the iPhone, open that address in <b>Safari</b> and sign in. Then follow the <a href="iphone.html">iPhone guide</a>: add it to the Home Screen, turn on notifications, Face ID, sharing, Calendar and Siri.</li>
+</ol>
+<div class="note"><p><b>Prefer not to keep a computer on?</b> A small cloud server works too: run Life there behind <b>Caddy</b> (it fetches a certificate automatically) with a long password. Details are in <code>SETUP-PHONE.md</code> in the project folder. Never expose the development server to the internet.</p></div>
+
+<h2>4 · Add integrations (all optional)</h2>
+<p>Open <b>Settings</b>, paste the key, done. Keys are stored <b>encrypted</b> and take effect immediately (no restart). A value in <code>.env</code> is still honoured as a fallback; what you type in Settings wins. Each integration reports its health in <b>Settings → Data health</b>.</p>
+<table><tr><th>Integration</th><th>How to set it up</th></tr>
+<tr><td><b>OpenAI</b> (assistant, voice, sharing, entry rules)</td><td>Create an API key at platform.openai.com → API keys. Paste it in <b>Settings → Voice &amp; assistant</b>. Set a monthly cap there too. Without it, everything except the AI features still works.</td></tr>
+<tr><td><b>Telegram</b> (reminders, morning brief, capture)</td><td>In Telegram message <b>@BotFather</b> → <code>/newbot</code> → copy the token into <b>Settings → Reminders &amp; Telegram</b>. Send your new bot any message, open <code>https://api.telegram.org/bot&lt;token&gt;/getUpdates</code> in a browser, find <code>"chat":{{"id":123…</code> and paste that number as <b>Telegram chat id</b>. Press <b>Send test notification</b>.</td></tr>
+<tr><td><b>Phone notifications</b></td><td>On the iPhone, in the installed app: <b>Settings → Phone notifications → Turn on for this device</b> → allow → <b>Send a test</b>.</td></tr>
+<tr><td><b>Gmail</b> (email a to-do to yourself)</td><td>Turn on 2-step verification for the Google account, create an <b>App password</b> (Google Account → Security → App passwords), and enter the address and app password in <b>Settings → Email-in</b>. Add the allowed sender addresses.</td></tr>
+<tr><td><b>Garmin</b> (sleep, steps, heart rate)</td><td>Enter your Garmin email and password in <b>Settings → Garmin</b>, then <b>Health → Sync now</b>. Garmin emails you <b>one</b> code; enter it on the same screen. After that Life keeps a login token and never signs in with your password from the background again.</td></tr>
+<tr><td><b>IMDb ratings</b></td><td><b>Settings → Film &amp; series ratings → Download IMDb ratings</b> (a free ~7 MB file, fetched only when you press the button).</td></tr>
+<tr><td><b>Calendar &amp; Siri links</b></td><td><b>Settings → Use it on your iPhone</b>.</td></tr></table>
+
+<h2>5 · Your visas and entry rules</h2>
+<p>Set your <b>passport country</b> and <b>where you live</b> in Settings → You. Add each visa you hold in <b>Travel → Documents &amp; visas</b> (type <b>Visa</b>, with the country and expiry). Open any country in Travel to see <b>Entry for you</b>, or the <b>Where can I go?</b> tab and press <b>Check every country</b> (about 5 minutes in the background; cached for a week).</p>
+
+<h2>Configuration reference</h2>
+<p>Most settings live in the app. These environment variables (in <code>.env</code> or the system environment) are for the server itself:</p>
+<table><tr><th>Variable</th><th>Meaning</th></tr>
+<tr><td><code>LIFE_PORT</code> / <code>LIFE_HOST</code></td><td>Port (default 5055) and bind address (default <code>127.0.0.1</code>: only this computer; Tailscale forwards to it)</td></tr>
+<tr><td><code>LIFE_HTTPS=1</code></td><td>Serve cookies as Secure and send HSTS (set it when you use the HTTPS address)</td></tr>
+<tr><td><code>LIFE_DATA</code></td><td>Where the data folder lives (default <code>./data</code>)</td></tr>
+<tr><td><code>LIFE_FERNET_KEY</code>, <code>LIFE_SECRET</code></td><td>Supply your own encryption / session keys instead of the generated files in <code>data/</code></td></tr>
+<tr><td><code>LIFE_AI_MOCK=1</code></td><td>Use a built-in fake model (for trying things without any key, and for tests)</td></tr></table>
+
+<h2>Backups, restore, updates</h2>
+<ul>
+<li><b>Automatic:</b> a nightly copy of the database in <code>data/backups</code> (14 days kept).</li>
+<li><b>From your phone:</b> Settings → Your data → <b>Download a backup</b> (saves to the Files app). <b>Backup with key</b> also includes the encryption key; keep that file private (for example in iCloud Drive).</li>
+<li><b>Back up <code>data/fernet.key</code> too.</b> It encrypts passport numbers, health values, scans and the keys you entered. Without it those are unreadable, by design.</li>
+<li><b>Restore:</b> stop Life, copy the chosen <code>life-….db</code> over <code>data/life.db</code> (and put your <code>fernet.key</code> back), start Life.</li>
+<li><b>Update:</b> stop Life, <code>git pull</code>, start it again. Your data is untouched. Run the tests if you like (below).</li>
+</ul>
+
+<h2>Troubleshooting</h2>
+<table><tr><th>Problem</th><th>Try this</th></tr>
+<tr><td>Phone can't open the address</td><td>Is Tailscale connected on the phone and the computer? Does the address work in a browser on the computer? Is Life running? Did you use the full <code>https://…ts.net</code> address (with the port if you chose one)?</td></tr>
+<tr><td>No notifications on iPhone</td><td>It must be the <b>installed</b> app (Home Screen icon), opened over HTTPS, with notifications allowed in iOS Settings → Notifications → Life. Then Settings → Phone notifications → Turn on → Send a test.</td></tr>
+<tr><td>No Face ID option</td><td>Open the HTTPS address (passkeys need it) and set it up on the iPhone itself: Settings → Face ID.</td></tr>
+<tr><td>Locked out after requiring Face ID</td><td>Open Life <b>on the computer</b> (<code>http://localhost:5055</code>); the password still works there. Then turn the requirement off in Settings → Face ID.</td></tr>
+<tr><td>A shared Instagram post lands in the Inbox</td><td>Nothing readable was found (a hidden caption and unreadable slides). Copy the caption, open Capture, paste it and tap <b>To lists</b>. Use Settings → Use it on your iPhone → <b>Test this token</b> to check the Shortcut.</td></tr>
+<tr><td>Garmin keeps emailing codes</td><td>Update to this version: it signs in once and keeps tokens. Press <b>Sync now</b>, enter the one code, done.</td></tr>
+<tr><td>Forgot the password</td><td>Stop Life, then in the project folder run <code>.venv\\Scripts\\python -c "import sqlite3; c = sqlite3.connect('data/life.db'); c.execute('DELETE FROM kv WHERE k=?', ('pw',)); c.commit()"</code> (on Mac/Linux use <code>.venv/bin/python</code>) and start Life: it asks you to choose a new password. Your data is untouched.</td></tr>
+<tr><td>Port already in use</td><td>Set <code>LIFE_PORT=5056</code> in <code>.env</code> and restart (and re-run <code>tailscale serve</code> with the new port).</td></tr>
+<tr><td>Something looks stale after an update</td><td>On the phone close and reopen the app (it refreshes its cache on start).</td></tr></table>
+
 <h2>Run the tests</h2>
 <pre><code>.venv\\Scripts\\python tests\\run_all.py          # everything (about 6 minutes)
 .venv\\Scripts\\python tests\\run_all.py --fast   # syntax, unit and backend tests (about 30 s)</code></pre>
 <p>They cover the backend, security rules, every page at desktop and phone size, Face ID with a virtual authenticator, touch gestures, offline mode and sync. A test also scans the repo for anything key-shaped.</p>
+
+<h2>Removing it</h2>
+<p>Stop Life and delete the project folder; your data went with it (<code>data/</code>). Before that, <b>Settings → Your data → Export everything</b> gives you a zip of all your records and notes.</p>
 """)
 
 PAGES["security.html"] = ("Security & privacy · Life", "How Life protects your data and what leaves your computer.", f"""
@@ -175,5 +242,6 @@ PAGES["security.html"] = ("Security & privacy · Life", "How Life protects your 
 
 for fn, (title, desc, body) in PAGES.items():
     nav = "".join(f'<a href="{h}"' + (' aria-current="page"' if h == fn else "") + f">{t}</a>" for h, t in NAV)
-    open(os.path.join(DOCS, fn), "w", encoding="utf8").write(LAYOUT.format(title=title, desc=desc, nav=nav, body=body))
+    with open(os.path.join(DOCS, fn), "w", encoding="utf8") as f:
+        f.write(LAYOUT.format(title=title, desc=desc, nav=nav, body=body))
 print("built", ", ".join(PAGES))
