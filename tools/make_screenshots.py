@@ -12,9 +12,9 @@ D = lambda n: (date.today() + timedelta(days=n)).isoformat()
 
 CARD_AL = {"verdict": "visa_free", "headline": "You can enter without a visa", "reason": "you hold your US visa (10 years, expires 2035)", "steps": ["Have a return or onward ticket"], "passport": "Travel documents must be valid for at least 3 months upon arrival.", "watch": "",
            "routes": [{"why": "you hold your US visa (10 years, expires 2035)", "condition": "Passengers can enter with a multiple entry visa issued by the USA, if they have already used the visa to enter the country of issue at least once for a maximum of 90 days."}],
-           "source": "https://www.emirates.com/", "checked": D(0), "nationality": "in", "residency": "ae"}
-GROUPS = {"visa_free": "al ge mx rs th ma id lk ke jo qa om bh kw sg my".split(), "held": "us jp sa".split(), "eta_or_evisa": "tr kh vn eg tz ug".split(), "on_arrival": "mv mu np".split(), "visa_required": "gb fr de it es ca au br ru".split()}
-ALL = {"nationality": "in", "residency": "ae", "total": 56, "running": False, "done": 56, "failed": 0, "cards": {cc: {"verdict": v, "reason": "sample"} for v, ccs in GROUPS.items() for cc in ccs}}
+           "source": "https://www.emirates.com/", "checked": D(0), "nationality": "br", "residency": "pt"}
+GROUPS = {"visa_free": "al ge mx rs th ma id lk ke jo qa om bh kw sg my".split(), "held": "us jp ca".split(), "eta_or_evisa": "tr kh vn eg tz ug".split(), "on_arrival": "mv mu np".split(), "visa_required": "gb fr de it es au ru".split()}
+ALL = {"nationality": "br", "residency": "pt", "total": 56, "running": False, "done": 56, "failed": 0, "cards": {cc: {"verdict": v, "reason": "sample"} for v, ccs in GROUPS.items() for cc in ccs}}
 
 
 def main():
@@ -31,14 +31,14 @@ def main():
             pg.goto(BASE); pg.wait_for_selector("input[type=password]"); pg.fill("input[type=password]", PW); pg.keyboard.press("Enter"); pg.wait_for_selector(".shell", timeout=10000)
             api = lambda path, body: pg.evaluate("async ([p, b]) => { const m = await (await fetch('/api/me')).json(); const r = await fetch(p, {method: 'POST', headers: {'X-CSRF': m.csrf, 'Content-Type': 'application/json'}, body: JSON.stringify(b)}); return r.status; }", [path, body])
             api("/api/demo", {}); pg.wait_for_timeout(1200)
-            api("/api/settings", {"name": "Sam", "nationality": "in", "residency": "ae"})
+            api("/api/settings", {"name": "Sam", "nationality": "br", "residency": "pt", "timezone": "Europe/Lisbon", "currency": "EUR", "home_lat": 38.72, "home_lon": -9.14})
             def put(kind, data, rid=None):
                 ts = "2026-01-01T00:00:00.000Z"; api("/api/sync", {"changes": [{"id": rid or str(uuid.uuid4()), "kind": kind, "data": data, "updated_at": ts, "created_at": ts}]})
             rest, cafe, mov, ser = (str(uuid.uuid4()) for _ in range(4))
             put("list", {"name": "Restaurants", "type": "restaurant"}, rest); put("list", {"name": "Cafes", "type": "restaurant"}, cafe); put("list", {"name": "Movies to watch", "type": "media"}, mov); put("list", {"name": "Series to watch", "type": "media"}, ser)
-            for n, (t, cu, ci, pr, st) in enumerate([("Ocean Grill", "Japanese", "Jumeirah, Dubai", "$$$", "want to go"), ("Taco Libre", "Mexican", "Al Quoz, Dubai", "$", "want to go"), ("Brick Oven Pizza", "Italian", "DIFC, Dubai", "$$", "want to go"), ("Smoke & Co", "BBQ", "Marina, Dubai", "$$", "want to go"), ("Noodle House", "Chinese", "Deira, Dubai", "$", "been, loved")]):
-                put("list_item", {"list": rest, "title": t, "status": st, "order": n, "cuisine": cu, "city": ci, "price": pr, "notes": "Post: https://www.instagram.com/p/sample/", "phone": "04 000 0000", "tags": ["date night"]})
-            for n, (t, cu, ci, pr) in enumerate([("Sunrise Cafe", "Coffee", "Jumeirah, Dubai", "$$"), ("Flour & Honey", "Bakery", "City Walk, Dubai", "$$")]):
+            for n, (t, cu, ci, pr, st) in enumerate([("Ocean Grill", "Japanese", "Alfama, Lisbon", "$$$", "want to go"), ("Taco Libre", "Mexican", "Chiado, Lisbon", "$", "want to go"), ("Brick Oven Pizza", "Italian", "Baixa, Lisbon", "$$", "want to go"), ("Smoke & Co", "BBQ", "Belém, Lisbon", "$$", "want to go"), ("Noodle House", "Chinese", "Intendente, Lisbon", "$", "been, loved")]):
+                put("list_item", {"list": rest, "title": t, "status": st, "order": n, "cuisine": cu, "city": ci, "price": pr, "notes": "Post: https://www.instagram.com/p/sample/", "phone": "000 000 000", "tags": ["date night"]})
+            for n, (t, cu, ci, pr) in enumerate([("Sunrise Cafe", "Coffee", "Alfama, Lisbon", "$$"), ("Flour & Honey", "Bakery", "Campo de Ourique, Lisbon", "$$")]):
                 put("list_item", {"list": cafe, "title": t, "status": "want to go", "order": n, "cuisine": cu, "city": ci, "price": pr})
             for n, (t, g, la, im, yr, md) in enumerate([("Past Lives", "Drama, Romance", "English, Korean", "7.8", "2023", "movie"), ("Minari", "Drama", "English", "7.4", "2020", "movie"), ("Amelie", "Comedy, Romance", "French", "8.3", "2001", "movie"), ("Parasite", "Thriller, Drama", "Korean", "8.5", "2019", "movie"),
                                                          ("The Holdovers", "Comedy, Drama", "English", "7.9", "2023", "movie"), ("Spirited Away", "Animation, Fantasy", "Japanese", "8.6", "2001", "movie"), ("Perfect Days", "Drama", "Japanese", "7.9", "2023", "movie")]):
@@ -48,10 +48,19 @@ def main():
             for t, due, tm, pr in [("Renew gym membership", D(0), "09:30", 1), ("Book dentist", D(0), None, 2), ("Send the invoice", D(0), None, 3), ("Plan the weekend trip", D(1), None, 3), ("Call Mum", D(0), "19:00", 3)]:
                 put("task", {"title": t, "due": due, "due_time": tm, "priority": pr, "ctx": "personal", "done": False, "tags": [], "subtasks": []})
             put("event", {"title": "Padel with Jo", "date": D(0), "start": "18:00", "end": "19:00", "allday": False, "ctx": "personal"}); put("event", {"title": "Team sync", "date": D(0), "start": "11:00", "end": "11:30", "allday": False, "ctx": "work"})
-            put("trip", {"name": "Lisbon", "start": D(60), "end": D(66), "countries": ["PT"], "status": "planned", "currency": "AED"})
-            for nm, cc in [("US visa (10 years, expires 2035)", "US"), ("Japan tourist visa (5 years)", "JP"), ("Saudi e-visa (2 years)", "SA")]:
+            put("trip", {"name": "Kyoto in spring", "start": D(60), "end": D(66), "countries": ["JP"], "status": "planned", "currency": "EUR"})
+            for nm, cc in [("US visa (10 years, expires 2035)", "US"), ("Japan tourist visa (5 years)", "JP"), ("Canada eTA (5 years)", "CA")]:
                 put("travel_doc", {"type": "visa", "name": nm, "nationality": cc, "expiry": ""})
+            # the app's built-in demo data is written for a Dubai user (a padel venue, a budget in AED): make those neutral for the public docs
+            for rec in pg.evaluate("fetch('/api/sync?since=').then(r => r.json()).then(j => j.records)"):
+                d = rec["data"]
+                if rec["kind"] == "list_item" and "dubai" in str(d.get("area", "")).lower(): put("list_item", {"area": "Alfama"}, rec["id"])
+                if rec["kind"] == "trip" and d.get("currency") == "AED": put("trip", {"currency": "EUR"}, rec["id"])
             pg.reload(); pg.wait_for_selector(".shell"); pg.wait_for_timeout(1500)
+            dump = pg.evaluate("fetch('/api/sync?since=').then(r => r.json()).then(j => JSON.stringify(j.records))") + pg.evaluate("fetch('/api/settings').then(r => r.json()).then(j => JSON.stringify(j))")
+            import re
+            bad = [w for w in ("Dubai", "AED", "Abshar", "Abhi", "Aslam", "India", "Emirates", "UAE", "@gmail", "ts.net") if re.search(r"" + re.escape(w) + r"", dump, re.I)]
+            assert not bad, f"sample data contains personal-looking text: {bad}"
             shot = lambda page, name: page.screenshot(path=os.path.join(OUT, name))
             go = lambda page, h, wait=".view": (page.goto(f"{BASE}/#/{h}"), page.wait_for_selector(wait), page.wait_for_timeout(700))
             pg.route("**/api/visa?to=al", lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps(CARD_AL)))
