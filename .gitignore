@@ -13,3 +13,6 @@ node_modules/
 *.pyc
 .DS_Store
 Thumbs.db
+tests/shots/
+tests/dbg.png
+tests/fail.png
